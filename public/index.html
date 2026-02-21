@@ -1,0 +1,3685 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Koperasi GKPS - byPutragungCyber</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* Biar nama panjang gak bikin tabel meleyot */
+        .nama-truncate {
+            max-width: 120px;
+            /* Lu bisa atur lebarnya di sini */
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .animate-fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* 1. CSS UNTUK LAYAR (Mencegah laporan muncul di bawah pas discroll) */
+        @media screen {
+            .print-only {
+                display: none !important;
+            }
+        }
+
+        /* 2. CSS UNTUK PRINT (Tampilan Pas Cetak) */
+        @media print {
+
+            /* 1. Sembunyikan elemen dashboard secara spesifik menggunakan display none */
+            /* Ganti selector di bawah dengan ID/Class pembungkus dashboard utama lu (misal: #sidebar, #navbar, #mainContent) */
+            body>*:not(#printAreaPro) {
+                display: none !important;
+            }
+
+            /* 2. Pastikan area print muncul dan mengambil seluruh halaman */
+            #printAreaPro {
+                display: block !important;
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                margin: 0;
+                padding: 0;
+                visibility: visible !important;
+            }
+
+            /* 3. Pengaturan Tabel agar tidak terpotong */
+            tr {
+                page-break-inside: avoid;
+            }
+
+            thead {
+                display: table-header-group;
+            }
+
+            @page {
+                margin: 1.5cm;
+            }
+        }
+
+        /* Pastikan di luar media print, area ini tetap tersembunyi */
+        @media screen {
+            #printAreaPro {
+                display: none !important;
+            }
+        }
+
+        /* Jurus murni biar TH gak bisa gerak pas di-scroll */
+        #viewKendali thead th {
+            position: sticky !important;
+            top: 0 !important;
+            z-index: 20 !important;
+            background-color: #f3f4f6 !important;
+            /* Warna bg-gray-100 */
+        }
+
+        /* Khusus buat kolom Anggota di pojok kiri atas */
+        #viewKendali thead th:first-child {
+            left: 0 !important;
+            z-index: 30 !important;
+        }
+    </style>
+</head>
+<div class="max-w-4xl mx-auto p-4 md:p-10 space-y-6">
+    <div class="flex justify-between items-center mb-4 px-4 md:px-0">
+        <div
+            class="text-xs md:text-sm font-medium text-gray-600 bg-gray-100 px-3 py-1.5 rounded-full border border-gray-200 shadow-sm">
+            <i class="fas fa-user-shield text-blue-600 mr-1"></i>
+            Admin: <span id="admin_info" class="font-bold text-gray-800">Memuat...</span>
+        </div>
+
+        <button onclick="logout()"
+            class="bg-red-500 hover:bg-red-600 text-white px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors shadow-md">
+            Keluar Sistem <i class="fas fa-sign-out-alt ml-2 text-sm"></i>
+        </button>
+    </div>
+    <div class="text-center py-4 flex flex-col items-center">
+
+        <img id="header-logo" src="" class="h-16 md:h-24 mb-4 hidden object-contain drop-shadow-md">
+
+        <h1 id="header-nama" class="text-2xl md:text-4xl font-black text-blue-700 uppercase tracking-tighter italic">
+            Koperasi Putragung
+        </h1>
+
+        <p id="header-alamat" class="text-gray-500 font-medium text-xs md:text-sm uppercase tracking-widest">
+            Sistem Administrasi & Keuangan
+        </p>
+
+    </div>
+
+    <div id="sectionDashboard" class="px-4 mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div class="bg-blue-600 p-4 rounded-2xl shadow-lg text-white">
+                <p class="text-[12px] opacity-80 font-bold uppercase">Total Saldo Kas</p>
+                <p id="card-saldo-akhir" class="text-2xl font-black">Rp0</p>
+                <p class="text-[10px] opacity-60">*Sudah termasuk saldo awal</p>
+            </div>
+
+            <div onclick="toggleDetail('detailPemasukan')"
+                class="bg-emerald-500 p-4 rounded-2xl shadow-lg text-white cursor-pointer hover:scale-[1.02] transition-transform">
+                <p class="text-[12px] opacity-80 font-bold uppercase">Total Pemasukan ▾</p>
+                <p id="card-total-masuk" class="text-2xl font-black">Rp0</p>
+            </div>
+
+            <div onclick="toggleDetail('detailPengeluaran')"
+                class="bg-rose-500 p-4 rounded-2xl shadow-lg text-white cursor-pointer hover:scale-[1.02] transition-transform">
+                <p class="text-[12px] opacity-80 font-bold uppercase">Total Pengeluaran ▾</p>
+                <p id="card-total-keluar" class="text-2xl font-black">Rp0</p>
+            </div>
+        </div>
+
+        <div id="detailPemasukan" class="hidden animate-fade-in mb-6">
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+
+                <div class="bg-white p-4 rounded-2xl shadow-sm border-l-4 border-emerald-500">
+                    <p class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Iuran Bulanan</p>
+                    <p id="totalBulanan" class="text-lg font-black text-emerald-900 mt-1">Rp0</p>
+                </div>
+
+                <div class="bg-white p-4 rounded-2xl shadow-sm border-l-4 border-emerald-500">
+                    <p class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Pendaftaran</p>
+                    <p id="totalDaftar" class="text-lg font-black text-emerald-900 mt-1">Rp0</p>
+                </div>
+
+                <div class="bg-white p-4 rounded-2xl shadow-sm border-l-4 border-emerald-500">
+                    <p class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Sukarela</p>
+                    <p id="totalSukarela" class="text-lg font-black text-emerald-900 mt-1">Rp0</p>
+                </div>
+
+                <div class="bg-white p-4 rounded-2xl shadow-sm border-l-4 border-emerald-500">
+                    <p class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Admin Pinjaman</p>
+                    <p id="totalAdmin" class="text-lg font-black text-emerald-900 mt-1">Rp0</p>
+                </div>
+
+                <div class="bg-white p-4 rounded-2xl shadow-sm border-l-4 border-emerald-500">
+                    <p class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Angsuran Pokok</p>
+                    <p id="totalAngsuran" class="text-lg font-black text-emerald-900 mt-1">Rp0</p>
+                </div>
+
+                <div class="bg-white p-4 rounded-2xl shadow-sm border-l-4 border-emerald-500">
+                    <p class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Pendapatan Bunga</p>
+                    <p id="totalBunga" class="text-lg font-black text-emerald-900 mt-1">Rp0</p>
+                </div>
+
+            </div>
+        </div>
+        <div id="detailPengeluaran" class="hidden grid grid-cols-2 gap-3 mb-4 animate-fade-in">
+            <div class="bg-white p-3 rounded-xl shadow-sm border-l-4 border-rose-600">
+                <p class="text-[10px] text-gray-400 font-bold uppercase">Operasional Koperasi</p>
+                <p id="totalOps" class="text-md font-bold text-gray-700">Rp0</p>
+            </div>
+
+            <div class="bg-white p-3 rounded-xl shadow-sm border-l-4 border-rose-500">
+                <p class="text-[10px] text-gray-400 font-bold uppercase">Pencairan Pinjaman</p>
+                <p id="totalPinjaman" class="text-md font-bold text-gray-700">Rp0</p>
+            </div>
+
+            <div class="bg-white p-3 rounded-xl shadow-sm border-l-4 border-rose-400">
+                <p class="text-[10px] text-gray-400 font-bold uppercase">Penarikan Simpanan</p>
+                <p id="totalTarikSimpanan" class="text-md font-bold text-gray-700">Rp0</p>
+            </div>
+        </div>
+    </div>
+    <div id="menuUtama" class="grid grid-cols-2 gap-4 px-4">
+        <div onclick="bukaMenu('registrasi')"
+            class="bg-white p-6 rounded-3xl shadow-sm border-b-8 border-blue-600 cursor-pointer active:scale-95 transition-all flex flex-col items-center justify-center gap-3 text-center h-40">
+            <div class="text-4xl">📝</div>
+            <h3 class="font-black text-gray-700 text-xs md:text-sm uppercase tracking-tighter">Registrasi<br>Anggota
+            </h3>
+        </div>
+
+        <div onclick="bukaMenu('daftar')"
+            class="bg-white p-6 rounded-3xl shadow-sm border-b-8 border-amber-500 cursor-pointer active:scale-95 transition-all flex flex-col items-center justify-center gap-3 text-center h-40">
+            <div class="text-4xl">👥</div>
+            <h3 class="font-black text-gray-700 text-xs md:text-sm uppercase tracking-tighter">Daftar<br>Anggota</h3>
+        </div>
+
+        <div onclick="bukaMenu('laporan')"
+            class="bg-white p-6 rounded-3xl shadow-sm border-b-8 border-emerald-600 cursor-pointer active:scale-95 transition-all flex flex-col items-center justify-center gap-3 text-center h-40">
+            <div class="text-4xl">📊</div>
+            <h3 class="font-black text-gray-700 text-xs md:text-sm uppercase tracking-tighter">Laporan<br>Keuangan</h3>
+        </div>
+
+        <div onclick="bukaMenu('pinjaman')"
+            class="bg-white p-6 rounded-3xl shadow-sm border-b-8 border-red-600 cursor-pointer active:scale-95 transition-all flex flex-col items-center justify-center gap-3 text-center h-40">
+            <div class="text-4xl">💰</div>
+            <h3 class="font-black text-gray-700 text-xs md:text-sm uppercase tracking-tighter">Pinjaman<br>Koperasi</h3>
+        </div>
+
+        <div onclick="bukaMenu('bukukas')"
+            class="bg-white p-6 rounded-3xl shadow-sm border-b-8 border-rose-500 cursor-pointer active:scale-95 transition-all flex flex-col items-center justify-center gap-2 text-center h-40">
+            <div class="text-4xl">💸</div>
+            <h3 class="font-black text-gray-700 text-[10px] md:text-xs uppercase tracking-tighter">Catatan Pengeluaran
+            </h3>
+
+        </div>
+
+        <div onclick="bukaKonfigurasi()"
+            class="bg-white p-6 rounded-3xl shadow-sm border-b-8 border-gray-400 cursor-pointer active:scale-95 transition-all flex flex-col items-center justify-center gap-3 text-center h-40">
+            <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
+                <i class="fas fa-cog text-gray-600 text-2xl"></i>
+            </div>
+            <span class="text-xs font-black text-gray-800">PENGATURAN</span>
+        </div>
+    </div>
+
+    <div id="sectionRegistrasi" class="hidden">
+        <button onclick="kembaliKeMenu()" class="mb-4 text-blue-600 font-bold flex items-center gap-2 py-2">⬅️
+            Kembali</button>
+        <div class="bg-white p-5 md:p-8 rounded-2xl shadow-lg border-t-4 border-blue-600">
+            <h2 class="text-xl font-bold mb-6 text-center uppercase font-black text-gray-700">Registrasi Anggota</h2>
+            <form id="formAnggota" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="md:col-span-2">
+                    <label class="text-xs font-bold text-gray-500 uppercase">Nama Lengkap</label>
+                    <input type="text" id="nama"
+                        class="mt-1 block w-full rounded-xl border-gray-300 p-3 bg-gray-50 border outline-none">
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-500 uppercase">NIK</label>
+                    <input type="number" id="nik"
+                        class="mt-1 block w-full rounded-xl border-gray-300 p-3 bg-gray-50 border outline-none">
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-500 uppercase">No. HP</label>
+                    <input type="number" id="no_hp"
+                        class="mt-1 block w-full rounded-xl border-gray-300 p-3 bg-gray-50 border outline-none">
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-500 uppercase">Tempat Lahir</label>
+                    <input type="text" id="tempat_lahir"
+                        class="mt-1 block w-full rounded-xl border-gray-300 p-3 bg-gray-50 border outline-none">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-400 uppercase">Tgl Lahir (Tgl/Bln/Thn)</label>
+                    <input type="text" id="tgl_lahir" class="w-full border p-3 rounded-xl bg-gray-50"
+                        placeholder="Contoh: 03/03/2007">
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-500 uppercase">Jenis Kelamin</label>
+                    <select id="jenis_kelamin"
+                        class="mt-1 block w-full rounded-xl border border-gray-300 p-3 bg-gray-50 outline-none">
+                        <option value="Laki-laki">Laki-laki</option>
+                        <option value="Perempuan">Perempuan</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-500 uppercase">Pekerjaan</label>
+                    <input type="text" id="pekerjaan"
+                        class="mt-1 block w-full rounded-xl border-gray-300 p-3 bg-gray-50 border outline-none">
+                </div>
+                <div class="md:col-span-2">
+                    <label class="text-xs font-bold text-gray-500 uppercase">Alamat</label>
+                    <textarea id="alamat"
+                        class="mt-1 block w-full rounded-xl border-gray-300 p-3 bg-gray-50 border outline-none"></textarea>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-[10px] font-bold text-gray-400 uppercase">Tanggal Bergabung
+                        (Tgl/Bln/Thn)</label>
+                    <input type="text" id="tgl_bergabung" class="w-full border p-3 rounded-xl bg-gray-50"
+                        placeholder="Contoh: 22/01/2026">
+                </div>
+                <div class="md:col-span-2 bg-blue-50 p-4 rounded-xl border border-blue-100 mt-2">
+                    <p class="text-xs font-black text-blue-800 uppercase mb-3 text-center">Setoran Awal</p>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="text-[10px] font-bold">Iuran Wajib</label>
+                            <input type="number" id="iuran_wajib"
+                                class="w-full p-2 rounded border bg-gray-100 cursor-not-allowed font-semibold text-gray-700"
+                                readonly>
+                            <span class="text-[11px] text-gray-500">*Registrasi include pembayaran bulan pertama iuran
+                                wajib 20.000 dan pendaftaran 100.000</span>
+                        </div>
+                        <div><label class="text-[10px] font-bold">Iuran Sukarela</label><input type="number"
+                                id="iuran_sukarela" value="0" class="w-full p-2 rounded border"></div>
+                    </div>
+                </div>
+                <button type="submit"
+                    class="md:col-span-2 bg-blue-600 text-white font-black py-4 rounded-xl hover:bg-blue-700 shadow-md mt-2 active:scale-95 transition-all uppercase">SIMPAN
+                    DATA & BAYAR</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="sectionDaftar" class="hidden h-[85vh] flex flex-col">
+        <div class="sticky top-0 bg-gray-100 z-20 pb-4">
+            <button onclick="kembaliKeMenu()" class="mb-4 text-emerald-600 font-bold flex items-center gap-2 py-2">⬅️
+                Kembali</button>
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-b-0 rounded-b-none">
+                <input type="text" id="searchInput"
+                    class="w-full p-3 rounded-xl border outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="Cari nama atau ID...">
+            </div>
+        </div>
+        <div class="bg-white rounded-b-2xl shadow-sm border overflow-hidden flex-1 overflow-y-auto">
+            <div class="overflow-x-auto overflow-y-auto max-h-full">
+                <table class="min-w-[700px] w-full text-sm border-separate border-spacing-0">
+                    <thead>
+                        <tr class="bg-gray-50 text-gray-600 text-[10px] uppercase font-bold">
+                            <th class="py-4 px-6 text-left sticky top-0 left-0 bg-gray-50 z-30 border-b">ID</th>
+                            <th class="py-4 px-6 text-left sticky top-0 bg-gray-50 z-20 border-b">Nama Anggota</th>
+                            <th class="py-4 px-6 text-center text-blue-600 sticky top-0 bg-gray-50 z-20 border-b">Tgl
+                                Gabung</th>
+                            <th class="py-4 px-6 text-center text-emerald-600 sticky top-0 bg-gray-50 z-20 border-b">
+                                Daftar</th>
+                            <th class="py-4 px-6 text-right sticky top-0 bg-gray-50 z-20 border-b">Total Iuran</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabelBody" class="divide-y divide-gray-100 bg-white"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="sectionLaporan" class="hidden">
+        <button onclick="kembaliKeMenu()" id="btnBackToMain"
+            class="mb-4 text-amber-600 font-bold flex items-center gap-2 py-2">⬅️ Kembali ke Dashboard</button>
+
+        <div id="menuPilihanLaporan" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div onclick="showSubLaporan('jurnal')"
+                class="bg-blue-600 p-6 rounded-2xl shadow-lg cursor-pointer active:scale-95 transition-all flex items-center gap-4 text-white">
+                <div class="text-3xl">📜</div>
+                <div class="text-left">
+                    <h3 class="font-black uppercase text-sm">Jurnal Penerimaan Kas</h3>
+                    <p class="text-[10px] opacity-80 font-medium">Histori transaksi, filter per anggota, bulan, & jenis
+                        iuran</p>
+                </div>
+            </div>
+
+            <div onclick="showSubLaporan('kendali')"
+                class="bg-emerald-600 p-6 rounded-2xl shadow-lg cursor-pointer active:scale-95 transition-all flex items-center gap-4 text-white">
+                <div class="text-3xl">📖</div>
+                <div class="text-left">
+                    <h3 class="font-black uppercase text-sm">Buku Kendali Iuran</h3>
+                    <p class="text-[10px] opacity-80 font-medium">Matriks setoran tahunan & rekap tunggakan anggota</p>
+                </div>
+            </div>
+
+            <div onclick="showSubLaporan('aruskas')"
+                class="bg-amber-500 p-6 rounded-2xl shadow-lg cursor-pointer active:scale-95 transition-all flex items-center gap-4 text-white">
+                <div class="text-3xl">💰</div>
+                <div class="text-left">
+                    <h3 class="font-black uppercase text-sm">Laporan Arus Kas</h3>
+                    <p class="text-[10px] opacity-80 font-medium">Rekap Saldo Awal, Masuk, Keluar & Saldo Akhir per
+                        periode</p>
+                </div>
+            </div>
+            <div onclick="showSubLaporan('cetak')"
+                class="bg-indigo-600 p-6 rounded-2xl shadow-lg cursor-pointer active:scale-95 transition-all flex items-center gap-4 text-white">
+                <div class="text-3xl">🖨️</div>
+                <div class="text-left">
+                    <h3 class="font-black uppercase text-sm">Cetak Laporan</h3>
+                    <p class="text-[10px] opacity-80 font-medium">Download PDF & Print Laporan Bulanan/Tahunan</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="kontenLaporanTerpilih" class="hidden w-full flex flex-col gap-6">
+            <div class="flex flex-col gap-4 w-full">
+                <div id="headerFilterLaporan"
+                    class="relative z-10 flex flex-wrap justify-between items-center gap-4 bg-white p-5 rounded-2xl shadow-sm border-2 border-gray-100 w-full">
+                </div>
+                <button onclick="backToSubMenuLaporan()"
+                    class="flex items-center gap-2 px-4 py-2 text-gray-500 font-bold text-xs hover:bg-gray-50 rounded-xl transition-all border border-gray-100 shadow-sm">
+                    ⬅️ Ganti Laporan
+                </button>
+
+                <div class="flex gap-2 items-center">
+                    <select id="lapTahun"
+                        class="p-2 rounded-xl border text-xs font-bold flex-1 md:w-32 bg-gray-50"></select>
+                    <button onclick="refreshLaporanAktif()"
+                        class="bg-amber-500 hover:bg-amber-600 text-white px-6 py-2 rounded-xl text-xs font-black shadow-md uppercase italic transition-transform active:scale-95">
+                        Proses Filter
+                    </button>
+                </div>
+            </div>
+
+            <div id="viewJurnal" class="hidden w-full bg-white rounded-3xl shadow-sm border-2 border-gray-100">
+                <div class="p-4 bg-gray-50 border-b grid grid-cols-1 md:grid-cols-3 gap-3 w-full">
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[9px] font-bold text-gray-400 uppercase ml-1">Cari Anggota</label>
+                        <input type="text" id="filterNamaJurnal" oninput="filterJurnal()" placeholder="Ketik nama..."
+                            class="p-2 border rounded-lg text-[10px] w-full shadow-sm outline-none focus:ring-2 focus:ring-indigo-400 transition-all">
+                    </div>
+
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[9px] font-bold text-gray-400 uppercase ml-1">Bulan</label>
+                        <select id="filterBulanJurnal" onchange="fetchLaporanLengkap()"
+                            class="p-2 border rounded-lg text-[10px] font-bold shadow-sm bg-white w-full outline-none focus:ring-2 focus:ring-indigo-400">
+                            <option value="">Semua Bulan</option>
+                            <option value="1">Januari</option>
+                            <option value="2">Februari</option>
+                            <option value="3">Maret</option>
+                            <option value="4">April</option>
+                            <option value="5">Mei</option>
+                            <option value="6">Juni</option>
+                            <option value="7">Juli</option>
+                            <option value="8">Agustus</option>
+                            <option value="9">September</option>
+                            <option value="10">Oktober</option>
+                            <option value="11">November</option>
+                            <option value="12">Desember</option>
+                        </select>
+                    </div>
+
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[9px] font-bold text-gray-400 uppercase ml-1">Kategori</label>
+                        <select id="filterJenisJurnal" onchange="fetchLaporanLengkap()"
+                            class="p-2 border rounded-lg text-[10px] shadow-sm bg-white w-full outline-none focus:ring-2 focus:ring-indigo-400">
+                            <option value="">Semua Jenis</option>
+                            <option value="wajib">Wajib</option>
+                            <option value="sukarela">Sukarela</option>
+                            <option value="pendaftaran">Pendaftaran</option>
+                            <option value="angsuran_pokok">Angsuran Pokok</option>
+                            <option value="pendapatan_bunga">Pendapatan Bunga</option>
+                            <option value="admin_pinjaman">Admin Pinjaman</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto max-h-[60vh] bg-white w-full">
+                    <table class="w-full text-left text-[10px] border-collapse">
+                        <thead class="bg-gray-100 text-gray-500 uppercase font-bold sticky top-0 z-10">
+                            <tr>
+                                <th class="p-4 border-b">Tgl Input</th>
+                                <th class="p-4 border-b">Anggota</th>
+                                <th class="p-4 border-b">Kategori</th>
+                                <th class="p-4 border-b">Periode</th>
+                                <th class="p-4 border-b text-right">Nominal</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabelLaporanBody" class="divide-y divide-gray-50 text-black font-medium"></tbody>
+                        <tfoot id="tabelLaporanFooter" class="sticky bottom-0 z-10 bg-white border-t-2 border-gray-100">
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+
+            <div id="viewKendali" class="hidden w-full bg-white rounded-3xl shadow-sm border-2 border-gray-100">
+                <div class="p-4 border-b bg-amber-50 flex justify-between items-center w-full">
+                    <h2 class="font-black text-amber-700 uppercase text-xs">📖 Matriks Iuran Wajib</h2>
+                    <span id="statusBulanBerjalan" class="text-[9px] bg-amber-200 px-2 py-1 rounded font-black"></span>
+                </div>
+
+                <div class="p-4 bg-white border-b grid grid-cols-1 md:grid-cols-2 gap-3 w-full">
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[9px] font-bold text-gray-400 uppercase">Cari Nama</label>
+                        <input type="text" id="searchKendali" oninput="filterMatriks()"
+                            placeholder="Cari nama anggota..."
+                            class="p-2 border rounded-xl text-[10px] focus:ring-2 focus:ring-amber-400 outline-none shadow-sm bg-gray-50 w-full">
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[9px] font-bold text-gray-400 uppercase">Status</label>
+                        <select id="filterStatus" onchange="filterMatriks()"
+                            class="p-2 border rounded-xl text-[10px] focus:ring-2 focus:ring-amber-400 outline-none bg-gray-50 font-bold text-gray-600 w-full">
+                            <option value="all">📊 SEMUA STATUS</option>
+                            <option value="lunas">✅ LUNAS (Rp0)</option>
+                            <option value="nunggak">🚨 NUNGGAK (>Rp0)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-2 p-4 bg-gray-50 border-b w-full">
+                    <div class="p-3 bg-blue-50 rounded-xl border border-blue-100">
+                        <p class="text-[8px] uppercase text-blue-600 font-bold">Anggota</p>
+                        <h3 id="statTotalAnggota" class="text-lg font-black text-blue-900">0</h3>
+                    </div>
+                    <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-100">
+                        <p class="text-[8px] uppercase text-emerald-600 font-bold">Total Lunas (Rp)</p>
+                        <h3 id="statTotalLunas" class="text-lg font-black text-emerald-900">0</h3>
+                    </div>
+                    <div class="p-3 bg-red-50 rounded-xl border border-red-100">
+                        <p class="text-[8px] uppercase text-red-600 font-bold">Total Tunggakan (Rp)</p>
+                        <h3 id="statTotalTunggakan" class="text-lg font-black text-red-900">0</h3>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto max-h-[60vh] bg-white w-full border rounded-b-2xl">
+                    <table class="w-full text-left text-[10px] border-separate border-spacing-0">
+                        <thead class="bg-gray-100 text-gray-500 uppercase font-bold sticky top-0 z-20">
+                            <tr>
+                                <th class="p-3 sticky top-0 left-0 bg-gray-100 z-30 border-b min-w-[150px]">Anggota</th>
+                                <th class="p-3 text-center border-b">Jan</th>
+                                <th class="p-3 text-center border-b">Feb</th>
+                                <th class="p-3 text-center border-b">Mar</th>
+                                <th class="p-3 text-center border-b">Apr</th>
+                                <th class="p-3 text-center border-b">Mei</th>
+                                <th class="p-3 text-center border-b">Jun</th>
+                                <th class="p-3 text-center border-b">Jul</th>
+                                <th class="p-3 text-center border-b">Agt</th>
+                                <th class="p-3 text-center border-b">Sep</th>
+                                <th class="p-3 text-center border-b">Okt</th>
+                                <th class="p-3 text-center border-b">Nov</th>
+                                <th class="p-3 text-center border-b">Des</th>
+                                <th class="p-3 text-right border-b bg-gray-50">Total</th>
+                                <th class="p-3 text-right border-b bg-red-50 text-red-600 font-black">Tunggakan</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabelKendaliBody" class="divide-y divide-gray-50 text-black"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div id="viewArusKas" class="hidden w-full animate-fade-in ">
+
+                <div class="flex items-center gap-2">
+                    <select id="lapBulanArusKas" class="p-2 rounded-xl border text-[10px] font-bold bg-white shadow-sm">
+                        <option value="01">Januari</option>
+                        <option value="02">Februari</option>
+                        <option value="03">Maret</option>
+                        <option value="04">April</option>
+                        <option value="05">Mei</option>
+                        <option value="06">Juni</option>
+                        <option value="07">Juli</option>
+                        <option value="08">Agustus</option>
+                        <option value="09">September</option>
+                        <option value="10">Oktober</option>
+                        <option value="11">November</option>
+                        <option value="12">Desember</option>
+                    </select>
+                    <button onclick="loadDataArusKas()"
+                        class="p-2 bg-amber-500 text-white rounded-xl text-[10px] font-black">
+                        RELOAD
+                    </button>
+                </div>
+                <div class="p-4 border-b bg-amber-50 rounded-t-2xl flex justify-between items-center">
+                    <h2 class="font-black text-amber-700 uppercase text-xs">💰 Laporan Arus Kas Periode</h2>
+                </div>
+
+                <div class="bg-white p-6 rounded-b-2xl shadow-sm border space-y-4">
+                    <div class="flex justify-between items-center p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                        <div>
+                            <p class="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Saldo Awal
+                            </p>
+                            <p id="resSaldoAwal" class="text-lg font-black text-gray-700">Rp 0</p>
+                        </div>
+                        <div class="text-xl opacity-20">🏦</div>
+                    </div>
+
+                    <div
+                        class="flex justify-between items-center p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
+                        <div>
+                            <p class="text-[9px] font-bold text-emerald-600 uppercase tracking-wider">(+)
+                                Pemasukan
+                            </p>
+                            <p id="resTotalMasuk" class="text-lg font-black text-emerald-700">Rp 0</p>
+                        </div>
+                        <div class="text-xl opacity-30">📥</div>
+                    </div>
+
+                    <div class="flex justify-between items-center p-4 bg-rose-50 rounded-2xl border border-rose-100">
+                        <div>
+                            <p class="text-[9px] font-bold text-rose-600 uppercase tracking-wider">(-)
+                                Pengeluaran
+                            </p>
+                            <p id="resTotalKeluar" class="text-lg font-black text-rose-700">Rp 0</p>
+                        </div>
+                        <div class="text-xl opacity-30">📤</div>
+                    </div>
+
+                    <div
+                        class="flex justify-between items-center p-5 bg-amber-500 rounded-2xl shadow-lg shadow-amber-100 text-white">
+                        <div>
+                            <p class="text-[9px] font-bold uppercase opacity-80 tracking-widest">Saldo Akhir Kas
+                            </p>
+                            <p id="resSaldoAkhir" class="text-2xl font-black">Rp 0</p>
+                        </div>
+                        <div class="text-3xl">💰</div>
+                    </div>
+                    <div class="mt-6 border-t pt-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-[10px] font-black uppercase text-gray-500 tracking-widest">📝
+                                Rincian
+                                Arus
+                                Kas</h3>
+                            <span id="labelPeriodeAktif"
+                                class="text-[9px] bg-amber-100 text-amber-700 px-2 py-1 rounded-lg font-bold"></span>
+                        </div>
+
+                        <div class="overflow-x-auto overflow-y-auto max-h-[500px] w-full border rounded-xl">
+                            <table class="w-full text-left text-[10px] border-separate border-spacing-0">
+                                <thead class="bg-gray-100 text-gray-500 uppercase font-bold sticky top-0 z-10">
+                                    <tr>
+                                        <th class="p-3 border-b">Tgl</th>
+                                        <th class="p-3 border-b">Keterangan</th>
+                                        <th class="p-3 border-b text-right text-emerald-600">Masuk (Rp)</th>
+                                        <th class="p-3 border-b text-right text-rose-600">Keluar (Rp)</th>
+                                        <th class="p-3 border-b text-right text-blue-600 bg-blue-50">Saldo</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabelDetailArusKas" class="divide-y divide-gray-50 text-black">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="viewCetak" class="hidden animate-fade-in">
+            <div
+                class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-4 rounded-2xl shadow-sm border">
+                <button onclick="backToSubMenuLaporan()"
+                    class="text-gray-500 font-bold flex items-center gap-2 py-2 text-xs">⬅️ Kembali
+                </button>
+            </div>
+
+            <div class="p-4 border-b bg-indigo-50 rounded-t-2xl">
+                <h2 class="font-black text-indigo-700 uppercase text-xs">🖨️ Pusat Cetak Dokumen</h2>
+            </div>
+
+            <div class="bg-white p-6 rounded-b-2xl shadow-sm border space-y-6">
+                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest text-center">Pilih
+                    Dokumen
+                    yang Ingin Dicetak</p>
+
+                <div class="grid grid-cols-1 gap-4">
+                    <div
+                        class="flex items-center justify-between p-4 border rounded-2xl hover:border-indigo-500 transition-colors group">
+                        <div class="flex items-center gap-4">
+                            <div class="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center text-xl">
+                                💰</div>
+                            <div>
+                                <h4 class="text-sm font-black text-gray-700">Laporan Arus Kas</h4>
+                                <p class="text-[10px] text-gray-400">Periode: <span class="lblPeriode">Januari
+                                        2026</span></p>
+                            </div>
+                        </div>
+                        <button onclick="printLaporan('aruskas')"
+                            class="bg-indigo-600 text-white px-4 py-2 rounded-xl text-[10px] font-black hover:bg-indigo-700">CETAK
+                            PDF</button>
+                    </div>
+
+                    <div
+                        class="flex items-center justify-between p-4 border rounded-2xl hover:border-indigo-500 transition-colors group">
+                        <div class="flex items-center gap-4">
+                            <div class="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center text-xl">
+                                📜</div>
+                            <div>
+                                <h4 class="text-sm font-black text-gray-700">Jurnal Penerimaan Kas</h4>
+                                <p class="text-[10px] text-gray-400">Histori Transaksi Masuk</p>
+                            </div>
+                        </div>
+                        <button onclick="printLaporan('jurnal')"
+                            class="bg-blue-600 text-white px-4 py-2 rounded-xl text-[10px] font-black hover:bg-blue-700">CETAK
+                            PDF</button>
+                    </div>
+
+                    <div
+                        class="flex items-center justify-between p-4 border rounded-2xl hover:border-indigo-500 transition-colors group">
+                        <div class="flex items-center gap-4">
+                            <div class="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center text-xl">
+                                📖</div>
+                            <div>
+                                <h4 class="text-sm font-black text-gray-700">Buku Kendali Anggota</h4>
+                                <p class="text-[10px] text-gray-400">Matriks Iuran Tahunan</p>
+                            </div>
+                        </div>
+                        <button onclick="printLaporan('kendali')"
+                            class="bg-emerald-600 text-white px-4 py-2 rounded-xl text-[10px] font-black hover:bg-emerald-700">CETAK
+                            PDF</button>
+                    </div>
+                </div>
+
+                <div class="bg-amber-50 p-4 rounded-xl border border-amber-100">
+                    <p class="text-[9px] text-amber-700 leading-relaxed font-medium">
+                        <strong>Tips:</strong> Pastikan filter bulan dan tahun di atas sudah sesuai sebelum
+                        menekan
+                        tombol cetak. Sistem akan mengambil data berdasarkan periode yang terpilih.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+<div id="sectionPinjaman" class="hidden animate-in fade-in duration-500">
+    <div class="bg-white p-6 rounded-3xl shadow-xl border border-gray-100">
+        <div class="flex justify-between items-center mb-6">
+            <div class="flex items-center gap-4">
+                <button onclick="kembaliKeMenu()"
+                    class="text-gray-400 hover:text-emerald-600 transition-all active:scale-90">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M15 19l-7-7 7-7" />
+                    </svg>
+                </button>
+                <div>
+                    <h2 class="text-xl font-black text-emerald-700 uppercase italic tracking-tighter leading-tight">
+                        Pinjaman Koperasi</h2>
+                    <p class="text-[10px] text-gray-400 font-bold uppercase">Manajemen Pinjaman & Bunga Efektif
+                    </p>
+                </div>
+            </div>
+            <button onclick="bukaModalPinjaman()"
+                class="bg-emerald-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase shadow-lg hover:bg-emerald-700 active:scale-95 transition-all">
+                + Tambah Pinjaman
+            </button>
+        </div>
+        <div
+            class="relative z-10 flex flex-wrap gap-3 mb-6 bg-emerald-50/50 p-4 rounded-2xl border-2 border-emerald-100">
+            <div class="flex-1 min-w-[200px]">
+                <input type="text" id="searchPinjaman" onkeyup="filterPinjaman()" placeholder="CARI NAMA ANGGOTA..."
+                    class="w-full px-4 py-3 rounded-xl border-2 border-emerald-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/20 outline-none text-sm font-black uppercase placeholder:text-gray-400 text-emerald-900">
+            </div>
+
+            <div class="flex gap-2">
+                <select id="filterBulanPinjaman" onchange="filterPinjaman()"
+                    class="px-4 py-3 rounded-xl border-2 border-emerald-200 outline-none text-sm font-black uppercase bg-white text-emerald-700 cursor-pointer focus:border-emerald-500 min-w-[120px]">
+                </select>
+                <select id="filterTahunPinjaman" onchange="filterPinjaman()"
+                    class="px-4 py-3 rounded-xl border-2 border-emerald-200 outline-none text-sm font-black uppercase bg-white text-emerald-700 cursor-pointer focus:border-emerald-500 min-w-[100px]">
+                </select>
+            </div>
+        </div>
+        <div class="p-4 bg-emerald-50 flex justify-between items-center rounded-b-3xl border-t border-emerald-100">
+            <span class="text-[10px] font-black text-emerald-700 uppercase italic">Total Pencairan
+                Pinjaman:</span>
+            <span id="totalNominalPinjaman" class="text-sm font-black text-emerald-600">Rp 0</span>
+        </div>
+        <div id="areaTabelPinjaman" class="overflow-x-auto mt-4">
+            <table class="min-w-full bg-white border border-gray-100 rounded-xl overflow-hidden text-xs">
+                <thead>
+                    <tr class="text-left border-b border-gray-100 bg-gray-50">
+                        <th class="px-2 py-3 font-black text-gray-400 uppercase italic">Tgl</th>
+                        <th class="px-2 py-3 font-black text-gray-400 uppercase italic">Nama Anggota</th>
+                        <th class="px-2 py-3 font-black text-gray-400 uppercase italic">Pokok</th>
+                        <th class="px-2 py-3 font-black text-gray-400 uppercase italic text-center">Tenor</th>
+                        <th class="px-2 py-3 font-black text-gray-400 uppercase italic text-center">Bunga</th>
+                        <th class="px-2 py-3 font-black text-gray-400 uppercase italic text-center">Status</th>
+                    </tr>
+                </thead>
+                <tbody id="tabel_daftar_pinjaman" class="divide-y divide-gray-50 text-black font-medium">
+                    <tr>
+                        <td colspan="6" class="py-10 text-center text-gray-400 font-bold uppercase italic">
+                            Menghubungkan ke database...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+        </div>
+    </div>
+</div>
+
+<div id="modalPinjaman" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in duration-300"
+        style="max-height: 90vh;">
+
+        <div class="bg-emerald-600 p-6 text-white flex-shrink-0">
+            <h3 class="text-xl font-black uppercase italic italic tracking-tighter">Form Pinjaman Baru</h3>
+            <p class="text-[10px] font-bold opacity-80 uppercase">Input data pinjaman & setting bunga</p>
+        </div>
+        <div class="flex-1 overflow-y-auto p-6">
+            <form id="formPinjaman" class="space-y-4">
+                <div>
+                    <label class="block text-[10px] font-black uppercase text-gray-400 mb-1">Pilih
+                        Anggota</label>
+                    <input list="list_anggota" id="input_cari_anggota" oninput="pilihAnggotaDariList(this.value)"
+                        placeholder="Ketik nama..."
+                        class="w-full p-3 bg-gray-50 border-2 border-gray-100 rounded-xl focus:border-emerald-500 outline-none text-sm font-bold">
+                    <datalist id="list_anggota"></datalist>
+                    <input type="hidden" id="pinjam_id_anggota">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-black uppercase text-gray-400 mb-1">Nominal
+                            (Rp)</label>
+                        <input type="text" id="pinjam_pokok" oninput="formatTampilanUang(this)"
+                            placeholder="Contoh: 5.000.000"
+                            class="w-full p-3 bg-gray-50 border-2 border-gray-100 rounded-xl focus:border-emerald-500 outline-none text-sm font-bold">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black uppercase text-gray-400 mb-1">Tenor
+                            (Bulan)</label>
+                        <input type="number" id="pinjam_tenor"
+                            class="w-full p-3 bg-gray-50 border-2 border-gray-100 rounded-xl focus:border-emerald-500 outline-none text-sm font-bold">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-black uppercase text-gray-400 mb-1">Bunga Per Bulan
+                        (%)</label>
+                    <input type="number" step="0.01" id="pinjam_bunga" value="1"
+                        class="w-full p-3 bg-gray-50 border-2 border-gray-100 rounded-xl focus:border-emerald-500 outline-none text-sm font-bold">
+                </div>
+                <div class="mt-6">
+                    <div class="flex justify-between items-end mb-2 px-1">
+                        <h4 class="text-[10px] font-black uppercase text-emerald-600 italic tracking-widest">
+                            Simulasi Angsuran</h4>
+                        <div class="text-right">
+                            <p class="text-[8px] text-gray-400 uppercase font-bold">Angsuran Pertama:</p>
+                            <p id="label_angsuran_pertama" class="text-sm font-black text-gray-700">Rp 0</p>
+                        </div>
+                    </div>
+
+                    <div class="border border-gray-100 rounded-xl overflow-hidden">
+                        <div style="max-height: 200px; overflow-y: auto;">
+                            <table class="w-full text-[10px] text-left">
+                                <thead class="bg-gray-50 text-gray-500 uppercase font-black sticky top-0 z-10">
+                                    <tr>
+                                        <th class="p-2">Bln</th>
+                                        <th class="p-2">Pokok</th>
+                                        <th class="p-2">Bunga</th>
+                                        <th class="p-2">Total</th>
+                                        <th class="p-2">Sisa</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="body_simulasi" class="divide-y divide-gray-50 font-bold text-gray-600">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-6 border-t border-gray-100 flex gap-3 bg-white flex-shrink-0">
+                    <button type="button" onclick="tutupModalPinjaman()"
+                        class="flex-1 py-3 border-2 border-gray-100 text-gray-400 rounded-xl font-black uppercase text-[10px] hover:bg-gray-50">Batal</button>
+                    <button type="button" onclick="simpanPinjaman(event)"
+                        class="flex-1 py-3 bg-emerald-600 text-white rounded-xl font-black uppercase text-[10px] shadow-lg shadow-emerald-200 hover:bg-emerald-700 active:scale-95 transition-all">
+                        Simpan Pinjaman
+                    </button>
+                </div>
+        </div>
+    </div>
+</div>
+
+<div id="modalDetail" class="fixed inset-0 bg-black/60 hidden flex items-start justify-center p-4 z-50 overflow-y-auto">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-lg p-6 relative my-8">
+        <button onclick="closeModal()"
+            class="absolute top-5 right-5 text-gray-400 hover:text-red-500 text-2xl font-bold">&times;</button>
+
+        <h3 class="text-xl font-black text-blue-600 mb-6 flex items-center gap-2 uppercase tracking-tighter">
+            👤 Profil Anggota
+        </h3>
+
+        <div id="detailContent" class="space-y-4"></div>
+
+        <div class="mt-6 border-t pt-4">
+            <button type="button" onclick="closeModal()"
+                class="w-full bg-gray-100 text-gray-600 py-3 rounded-2xl font-black text-sm hover:bg-gray-200 transition uppercase shadow-sm">
+                Tutup Profil & Kembali
+            </button>
+        </div>
+    </div>
+</div>
+
+<div id="modalAngsuran" class="fixed inset-0 z-[9999] hidden items-center justify-center">
+    <div onclick="tutupModal()" class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
+
+    <div
+        class="relative bg-white w-full max-w-3xl mx-4 rounded-3xl shadow-2xl overflow-hidden flex flex-col animate__animated animate__zoomIn animate__faster">
+
+        <div class="bg-indigo-600 p-5 flex justify-between items-center text-white">
+            <div>
+                <h3 class="font-black text-xl tracking-tight text-white">🗓️ JADWAL ANGSURAN</h3>
+                <p class="text-[10px] opacity-80 uppercase font-bold text-white">Detail Tagihan Bulanan Anggota
+                </p>
+            </div>
+            <button type="button" onclick="tutupModal()"
+                class="bg-white/20 hover:bg-white/40 w-10 h-10 rounded-full flex items-center justify-center transition-all text-white text-2xl font-bold">&times;</button>
+        </div>
+
+        <div class="p-6 overflow-y-auto max-h-[60vh] p-0 relative">
+            <table class="w-full text-left border-separate border-spacing-0">
+                <thead class="sticky top-0 bg-white z-50">
+                    <tr class="text-[10px] text-gray-400 uppercase font-black">
+                        <th class="py-3 px-2 text-center">Ke</th>
+                        <th class="py-3 px-2">No Tagihan</th>
+                        <th class="py-3 px-2">Pokok</th>
+                        <th class="py-3 px-2">Bunga</th>
+                        <th class="py-3 px-2">Total</th>
+                        <th class="py-3 px-2">Status</th>
+                        <th class="py-3 px-2 text-center">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="tabelJadwalBody" class="divide-y divide-gray-50">
+                </tbody>
+            </table>
+        </div>
+
+        <div class="p-4 bg-gray-50 flex justify-end gap-3 border-t">
+            <button type="button" onclick="tutupModal()"
+                class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-6 py-2.5 rounded-xl font-bold text-[10px] transition-all">TUTUP</button>
+        </div>
+    </div>
+</div>
+
+<div id="modalRiwayatPinjaman" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center z-[60]">
+    <div
+        class="bg-white rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div class="p-6 bg-slate-800 text-white flex justify-between items-center">
+            <div>
+                <h3 class="text-xl font-black">📊 RIWAYAT PINJAMAN</h3>
+                <p class="text-xs text-slate-300">Daftar semua pinjaman yang pernah diambil</p>
+            </div>
+            <button onclick="document.getElementById('modalRiwayatPinjaman').classList.add('hidden')"
+                class="text-white hover:rotate-90 transition-all duration-300">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+
+        <div class="overflow-y-auto max-h-[60vh] p-0">
+            <table class="w-full text-left border-collapse">
+                <thead class="sticky top-0 bg-white shadow-md z-10">
+                    <tr class="text-[10px] text-slate-500 uppercase font-black bg-slate-50">
+                        <th class="p-4 text-center border-b">Tgl Pinjam</th>
+                        <th class="p-4 border-b">Plafon</th>
+                        <th class="p-4 text-center border-b">Progres</th>
+                        <th class="p-4 border-b">Sisa Pokok</th>
+                        <th class="p-4 text-center border-b">Status</th>
+                        <th class="p-4 text-center border-b">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="bodyRiwayatPinjaman">
+                </tbody>
+            </table>
+        </div>
+
+        <div class="p-4 bg-gray-50 flex justify-end">
+            <button type="button" onclick="document.getElementById('modalRiwayatPinjaman').classList.add('hidden')"
+                class="bg-gray-400 text-white px-6 py-2 rounded-xl font-bold hover:bg-gray-500 transition-all shadow-md">
+                TUTUP
+            </button>
+        </div>
+    </div>
+</div>
+
+<div id="viewBukuKas" class="hidden p-4 space-y-4">
+    <div class="flex items-center justify-between mb-2">
+
+        <button type="button" onclick="kembaliKeMenu()"
+            class="flex items-center gap-1.5 text-rose-600 hover:text-rose-700 transition-all group">
+            <div class="bg-rose-50 p-2 rounded-xl group-active:scale-90 transition-transform">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M15 19l-7-7 7-7" />
+                </svg>
+            </div>
+            <span class="text-[10px] font-black uppercase tracking-widest">Kembali</span>
+        </button>
+
+        <div class="text-right italic">
+            <h2 class="text-lg font-black text-gray-800 leading-none">BUKU KAS UMUM</h2>
+            <span class="text-[8px] text-gray-400 font-bold uppercase">Laporan Pengeluaran</span>
+        </div>
+        <button type="button" onclick="bukaModalPengeluaran()"
+            class="bg-rose-500 hover:bg-rose-600 text-white px-3 py-2 rounded-xl text-[9px] font-black shadow-lg shadow-rose-100 transition-all active:scale-95 flex items-center gap-1">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4" />
+            </svg>
+            CATAT PENGELUARAN
+        </button>
+    </div>
+    <div class="space-y-2 mb-4 px-1">
+
+        <div class="bg-white border rounded-2xl shadow-sm">
+            <input type="text" id="searchBKU" oninput="filterBKU()" placeholder="🔍 Cari kategori atau keterangan..."
+                class="w-full p-3 border-none rounded-2xl text-[10px] focus:ring-2 focus:ring-rose-400 outline-none bg-gray-50">
+        </div>
+
+        <div class="flex gap-2">
+            <select id="filterBulanBKU" onchange="fetchBukuKas()"
+                class="flex-1 p-2.5 border rounded-xl text-[10px] font-bold text-gray-600 bg-white shadow-sm focus:ring-2 focus:ring-rose-400 outline-none">
+                <option value="all">📊 SEMUA BULAN</option>
+                <option value="01">Januari</option>
+                <option value="02">Februari</option>
+                <option value="03">Maret</option>
+                <option value="04">April</option>
+                <option value="05">Mei</option>
+                <option value="06">Juni</option>
+                <option value="07">Juli</option>
+                <option value="08">Agustus</option>
+                <option value="09">September</option>
+                <option value="10">Oktober</option>
+                <option value="11">November</option>
+                <option value="12">Desember</option>
+            </select>
+
+            <select id="filterTahunBKU" onchange="fetchBukuKas()"
+                class="w-24 p-2.5 border rounded-xl text-[10px] font-bold text-gray-600 bg-white shadow-sm focus:ring-2 focus:ring-rose-400 outline-none">
+                <option value="2025">2025</option>
+                <option value="2026" selected>2026</option>
+                <option value="2027">2027</option>
+            </select>
+        </div>
+    </div>
+    <table class="w-full text-left text-[10px] border-collapse">
+        <thead class="bg-gray-100 text-gray-500 uppercase font-bold sticky top-0">
+            <tr>
+                <th class="p-4">Tanggal</th>
+                <th class="p-4">Kategori</th>
+                <th class="p-4">Keterangan</th>
+                <th class="p-4">Admin</th>
+                <th class="p-4 text-right">Nominal</th>
+            </tr>
+        </thead>
+        <tbody id="tabelKasUmumBody" class="divide-y divide-gray-50 text-black"></tbody>
+
+        <tfoot id="tabelKasUmumFooter" class="sticky bottom-0 z-10"></tfoot>
+    </table>
+</div>
+</div>
+
+<div id="modalPengeluaran"
+    class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[999] hidden flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-fade-in">
+        <div class="bg-rose-500 p-5 text-white text-center">
+            <h3 class="text-lg font-black uppercase italic italic tracking-tighter">Input Pengeluaran Baru</h3>
+            <p class="text-[8px] opacity-80 font-bold uppercase tracking-[0.2em]">Form Catat Kas Keluar</p>
+        </div>
+
+        <form id="formPengeluaran" class="p-6 space-y-4">
+            <div>
+                <label class="block text-[10px] font-black text-gray-400 uppercase mb-1 ml-1">Kategori</label>
+                <div class="flex gap-2">
+                    <select id="kat_pengeluaran" onchange="cekKategoriLain(this.value)"
+                        class="flex-1 p-3 bg-gray-50 border border-gray-100 rounded-2xl text-[11px] font-bold outline-none focus:ring-2 focus:ring-rose-400 transition-all">
+                        <option value="" disabled selected>PILIH KATEGORI</option>
+                        <option value="ATK">ATK</option>
+                        <option value="KONSUMSI">KONSUMSI</option>
+                        <option value="TRANSPORTASI">TRANSPORTASI</option>
+                        <option value="OPERASIONAL">OPERASIONAL</option>
+                        <option value="LAIN-LAIN">TAMBAH KATEGORI BARU...</option>
+                    </select>
+                </div>
+
+                <input type="text" id="kat_manual" placeholder="Ketik Kategori Baru..."
+                    class="hidden mt-2 w-full p-3 bg-rose-50 border border-rose-100 rounded-2xl text-[11px] font-black uppercase outline-none focus:ring-2 focus:ring-rose-400 placeholder:text-rose-300">
+            </div>
+
+            <div>
+                <label class="block text-[10px] font-black text-gray-400 uppercase mb-1 ml-1">Keterangan</label>
+                <textarea id="ket_pengeluaran" placeholder="Contoh: Beli bensin motor dinas..."
+                    class="w-full p-3 bg-gray-50 border border-gray-100 rounded-2xl text-[11px] font-medium outline-none focus:ring-2 focus:ring-rose-400 h-20 resize-none transition-all"></textarea>
+            </div>
+
+            <div>
+                <label class="block text-[10px] font-black text-gray-400 uppercase mb-1 ml-1">Nominal (Rp)</label>
+                <input type="text" id="nom_pengeluaran" placeholder="0" oninput="formatNominalBKU(this)"
+                    class="w-full p-3 bg-gray-50 border border-gray-100 rounded-2xl text-[12px] font-black outline-none focus:ring-2 focus:ring-rose-400 transition-all">
+            </div>
+
+            <div class="flex gap-2 pt-2">
+                <button type="button" onclick="tutupModalPengeluaran()"
+                    class="flex-1 p-3 text-[10px] font-black text-gray-400 uppercase hover:bg-gray-50 rounded-2xl transition-all">Batal</button>
+                <button type="button" onclick="simpanPengeluaran(event)"
+                    class="flex-1 p-3 bg-rose-500 text-white text-[10px] font-black uppercase rounded-2xl shadow-lg shadow-rose-100 hover:bg-rose-600 active:scale-95 transition-all">
+                    Simpan Data
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="printAreaPro" class="print-only p-10 bg-white text-black font-serif">
+    <div class="text-center border-b-2 border-black pb-4 mb-6">
+        <h1 class="text-2xl font-bold uppercase">KOPERASI PUTRAGUNG</h1>
+        <p class="text-sm italic italic">Sistem Administrasi & Keuangan Digital</p>
+        <div class="mt-4">
+            <h2 class="text-lg font-bold underline uppercase">Laporan Arus Kas</h2>
+            <p class="text-sm">Periode: <span id="p_periode_txt">-</span></p>
+        </div>
+    </div>
+
+    <table class="w-full border-collapse border border-black text-[11px]">
+        <thead>
+            <tr class="bg-gray-100">
+                <th class="border border-black p-2 w-10">KODE</th>
+                <th class="border border-black p-2 text-left">URAIAN / KETERANGAN</th>
+                <th class="border border-black p-2 text-right w-32">MUTASI (Rp)</th>
+                <th class="border border-black p-2 text-right w-32">TOTAL (Rp)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr class="font-bold border-b border-black">
+                <td class="border border-black p-2 text-center text-blue-700">A</td>
+                <td class="border border-black p-2 uppercase">Saldo Awal Bulan</td>
+                <td class="border border-black p-2 text-right">-</td>
+                <td class="border border-black p-2 text-right" id="p_saldo_awal">0</td>
+            </tr>
+
+            <tr class="font-bold bg-gray-50">
+                <td class="border border-black p-2 text-center text-blue-700">B</td>
+                <td class="border border-black p-2 uppercase" colspan="3">Penerimaan Kas (Pendapatan)</td>
+            </tr>
+        <tbody id="p_list_pendapatan"></tbody>
+        <tr class="font-bold">
+            <td class="border border-black p-2"></td>
+            <td class="border border-black p-2 text-right italic text-gray-600">Total Penerimaan Bulan Ini</td>
+            <td class="border border-black p-2 text-right border-t-2" id="p_total_masuk_mutasi">0</td>
+            <td class="border border-black p-2 text-right text-emerald-700" id="p_total_masuk_final">0</td>
+        </tr>
+
+        <tr class="font-bold bg-gray-50">
+            <td class="border border-black p-2 text-center text-blue-700">C</td>
+            <td class="border border-black p-2 uppercase" colspan="3">Pengeluaran Kas (Operasional)</td>
+        </tr>
+        <tbody id="p_list_pengeluaran"></tbody>
+        <tr class="font-bold">
+            <td class="border border-black p-2"></td>
+            <td class="border border-black p-2 text-right italic text-gray-600">Total Pengeluaran Operasional</td>
+            <td class="border border-black p-2 text-right border-t-2 text-red-600" id="p_total_keluar_mutasi">0</td>
+            <td class="border border-black p-2 text-right">-</td>
+        </tr>
+
+        <tr class="font-bold">
+            <td class="border border-black p-2 text-center text-blue-700">D</td>
+            <td class="border border-black p-2 uppercase italic">Pencairan Pinjaman Anggota</td>
+            <td class="border border-black p-2 text-right text-red-600 font-black" id="p_total_pinjaman">0</td>
+            <td class="border border-black p-2 text-right">-</td>
+        </tr>
+
+        <tr class="font-bold bg-gray-100 border-t-2 border-black">
+            <td class="p-2"></td>
+            <td class="p-2 uppercase">Total Seluruh Pengeluaran (C+D)</td>
+            <td class="p-2 text-right">-</td>
+            <td class="border border-black p-2 text-right text-red-700" id="p_total_keluar_final">0</td>
+        </tr>
+
+        <tr class="font-bold bg-blue-50 text-[13px] border-t-4 border-double border-black">
+            <td class="border border-black p-2 text-center text-blue-700">E</td>
+            <td class="border border-black p-2 uppercase font-black">Saldo Akhir Kas (Sisa Saldo)</td>
+            <td class="border border-black p-2 text-right">-</td>
+            <td class="border border-black p-2 text-right underline decoration-double font-black text-blue-800"
+                id="p_saldo_akhir">0</td>
+        </tr>
+        </tbody>
+    </table>
+
+    <div class="mt-16 flex justify-between px-10 text-[10px] uppercase">
+        <div class="text-center">
+            <p>Dibuat Oleh,</p>
+            <div class="h-20"></div>
+            <p class="font-bold underline">Bendahara Koperasi</p>
+        </div>
+        <div class="text-center">
+            <p>Diketahui/Disetujui Oleh,</p>
+            <div class="h-20"></div>
+            <p class="font-bold underline">Ketua Koperasi</p>
+        </div>
+    </div>
+</div>
+<script>
+    fetch('/api/config')
+        .then(response => response.json())
+        .then(data => {
+            // Baris ini bakal ngganti angka 50000 jadi 20000 sesuai isi database
+            const inputIuran = document.getElementById('iuran_wajib');
+            if (inputIuran && data.iuran_wajib) {
+                inputIuran.value = data.iuran_wajib;
+            }
+        })
+        .catch(err => console.error('Gagal ambil data config:', err));
+    // Taruh di paling atas script
+    const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? 'http://localhost:3000'
+        : window.location.origin;
+
+    console.log("Koneksi API ke:", API_BASE_URL);
+
+    // Fungsi Helper untuk merapikan format tanggal Indonesia
+    const formatTglIndo = (dateStr, format = 'pendek') => {
+        if (!dateStr) return '-';
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return '-';
+
+        if (format === 'lengkap') {
+            // Hasil: 21 Januari 2026
+            return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+        } else if (format === 'jam') {
+            // Hasil: 21/01/2026 18:30
+            return d.toLocaleString('id-ID', {
+                day: '2-digit', month: '2-digit', year: 'numeric',
+                hour: '2-digit', minute: '2-digit'
+            }).replace(/\./g, ':');
+        } else {
+            // Hasil: 21/01/2026
+            return d.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        }
+    };
+    let allData = [];
+
+    // 1. Fungsi Utama Load Laporan
+    async function loadLaporan() {
+        try {
+            // Ambil data Ringkasan
+            const resSummary = await fetch(`${API_BASE_URL}/api/dashboard-summary`);
+            const summary = await resSummary.json();
+
+            // Ambil data Rincian Iuran
+            const resDetail = await fetch(`${API_BASE_URL}/laporan-kas`);
+            const details = await resDetail.json();
+
+            // --- UPDATE CARD UTAMA ---
+            document.getElementById('card-saldo-akhir').innerText = formatRupiah(summary.saldo_akhir_kas);
+            document.getElementById('card-total-masuk').innerText = formatRupiah(summary.total_pemasukan);
+            document.getElementById('card-total-keluar').innerText = formatRupiah(summary.total_pengeluaran_kumulatif);
+
+            // --- UPDATE DETAIL PENGELUARAN ---
+            document.getElementById('totalOps').innerText = formatRupiah(summary.total_pengeluaran_ops);
+            document.getElementById('totalPinjaman').innerText = formatRupiah(summary.total_pinjaman_cair);
+
+            // Update Penarikan Simpanan (ID Baru kita)
+            if (document.getElementById('totalTarikSimpanan')) {
+                document.getElementById('totalTarikSimpanan').innerText = formatRupiah(summary.total_tarik_simpanan);
+            }
+
+            // --- UPDATE DETAIL PEMASUKAN ---
+            let iuranWajib = 0, pendaftaran = 0, sukarela = 0, adminPinjaman = 0, angsuranPokok = 0, pendapatanBunga = 0;
+
+            if (Array.isArray(details)) {
+                details.forEach(item => {
+                    const nominal = parseFloat(item.total) || 0;
+                    const kategori = item.jenis_iuran ? item.jenis_iuran.toLowerCase().trim() : "";
+
+                    if (kategori === 'wajib') iuranWajib += nominal;
+                    if (kategori === 'pendaftaran') pendaftaran += nominal;
+                    if (kategori === 'sukarela') sukarela += nominal;
+                    if (kategori === 'angsuran_pokok' || kategori === 'angsuran pokok') angsuranPokok += nominal;
+                    if (kategori === 'pendapatan_bunga' || kategori === 'pendapatan bunga') pendapatanBunga += nominal;
+                    if (kategori === 'admin_pinjaman' || kategori === 'admin pinjaman') adminPinjaman += nominal;
+                });
+            }
+
+            // Kirim hasil hitung ke HTML
+            document.getElementById('totalBulanan').innerText = formatRupiah(iuranWajib);
+            document.getElementById('totalDaftar').innerText = formatRupiah(pendaftaran);
+            document.getElementById('totalSukarela').innerText = formatRupiah(sukarela);
+            document.getElementById('totalAdmin').innerText = formatRupiah(adminPinjaman);
+            document.getElementById('totalAngsuran').innerText = formatRupiah(angsuranPokok);
+            document.getElementById('totalBunga').innerText = formatRupiah(pendapatanBunga);
+
+        } catch (e) {
+            console.error("Gagal load laporan dashboard:", e);
+        }
+    }
+
+    // 2. Fungsi Pembantu (Taruh di luar loadLaporan agar bisa diakses global)
+    function formatRupiah(angka) {
+        return 'Rp' + (angka || 0).toLocaleString('id-ID');
+    }
+
+    // 3. Fungsi Toggle (Harus di luar agar onclick="toggleDetail(...)" di HTML jalan)
+    function toggleDetail(id) {
+        const el = document.getElementById(id);
+        if (el) {
+            el.classList.toggle('hidden');
+        }
+    }
+    // Panggil fungsi ini di dalam DOMContentLoaded atau di awal script
+    loadLaporan();
+
+    async function fetchLaporanLengkap() {
+        const area = document.getElementById('tabelLaporanBody');
+        const footerArea = document.getElementById('tabelLaporanFooter');
+        if (!area) return;
+
+        // 1. Ambil nilai filter
+        const tahunTerpilih = document.getElementById('lapTahun')?.value || new Date().getFullYear();
+        const filterBulan = document.getElementById('filterBulanJurnal')?.value || "";
+        const filterJenis = document.getElementById('filterJenisJurnal')?.value || "";
+
+        // Reset tampilan saat loading
+        area.innerHTML = '<tr><td colspan="5" class="p-10 text-center animate-pulse text-blue-500 font-bold uppercase text-[10px]">Menyinkronkan data...</td></tr>';
+        if (footerArea) footerArea.innerHTML = "";
+
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/laporan-transaksi?tahun=${tahunTerpilih}&v=${Date.now()}`);
+            const response = await res.json();
+
+            let data = response.transaksi || [];
+
+            if (!Array.isArray(data)) {
+                area.innerHTML = `<tr><td colspan="5" class="p-10 text-center text-red-400 font-bold uppercase text-[10px]">Format Data Bermasalah</td></tr>`;
+                return;
+            }
+
+            // --- TAHAP FILTERING ---
+            if (filterBulan !== "") {
+                data = data.filter(t => t.bulan_iuran == filterBulan);
+            }
+
+            if (filterJenis !== "") {
+                data = data.filter(t => t.jenis_iuran === filterJenis);
+            }
+
+            // --- TAHAP RENDERING & PERHITUNGAN ---
+            area.innerHTML = "";
+            let totalDuit = 0;
+
+            if (data.length === 0) {
+                area.innerHTML = `<tr><td colspan="5" class="p-10 text-center text-gray-400 font-bold uppercase text-[10px]">Data Tahun ${tahunTerpilih} Tidak Ditemukan</td></tr>`;
+                if (footerArea) footerArea.innerHTML = "";
+                return;
+            }
+
+            data.forEach(t => {
+                const nominalMentah = parseInt(t.nominal || t.jumlah_bayar || 0);
+                totalDuit += nominalMentah;
+
+                // --- LOGIKA WARNA BADGE (DI-UPDATE BIAR GAK BIRU SEMUA) ---
+                let badgeStyle = "bg-blue-100 text-blue-700 border-blue-200";
+                let labelTeks = (t.jenis_iuran || 'iuran').toUpperCase().replace('_', ' ');
+
+                if (t.jenis_iuran === 'admin_pinjaman') {
+                    badgeStyle = "bg-orange-100 text-orange-700 border-orange-200";
+                } else if (t.jenis_iuran === 'pendaftaran') {
+                    badgeStyle = "bg-purple-100 text-purple-700 border-purple-200";
+                } else if (t.jenis_iuran === 'angsuran_pokok') {
+                    badgeStyle = "bg-indigo-100 text-indigo-700 border-indigo-200";
+                } else if (t.jenis_iuran === 'pendapatan_bunga') {
+                    badgeStyle = "bg-emerald-100 text-emerald-700 border-emerald-200";
+                }
+
+                area.insertAdjacentHTML('beforeend', `
+                <tr class="hover:bg-gray-50 border-b transition-colors">
+                    <td class="p-4 text-[10px] text-gray-500 font-mono">${formatKeIndo(t.created_at)}</td>
+                    <td class="p-4 text-[10px] font-black text-blue-900 uppercase">${t.nama_lengkap || 'Tanpa Nama'}</td>
+                    <td class="p-4 text-center">
+                        <span class="${badgeStyle} px-2 py-1 rounded text-[8px] font-black uppercase tracking-tighter border">
+                            ${labelTeks}
+                        </span>
+                    </td>
+                    <td class="p-4 text-[10px] text-gray-600 font-bold">${getNamaBulan(t.bulan_iuran)} ${t.tahun_iuran || ''}</td>
+                    <td class="p-4 text-right font-black text-emerald-600 text-[10px] italic">${formatRupiah(nominalMentah)}</td>
+                </tr>
+            `);
+            });
+
+            // --- TAMPILKAN TOTAL YANG SUDAH TERFILTER ---
+            if (footerArea) {
+                footerArea.innerHTML = `
+                <tr class="bg-amber-50 font-black border-t-2 border-amber-200 shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
+                    <td colspan="4" class="p-4 text-right text-[10px] text-amber-700 uppercase italic">
+                        Total Kas Masuk (${filterJenis || 'Semua'}):
+                    </td>
+                    <td class="p-4 text-right text-amber-900 text-[11px] font-mono">
+                        ${formatRupiah(totalDuit)}
+                    </td>
+                </tr>
+            `;
+            }
+
+        } catch (e) {
+            console.error("Error Render Jurnal:", e);
+            area.innerHTML = '<tr><td colspan="5" class="p-10 text-center text-red-500 font-bold uppercase text-[10px]">Gagal Memuat Data</td></tr>';
+        }
+    }
+    // Fungsi untuk memfilter tampilan tabel Jurnal secara realtime
+    function filterJurnal() {
+        const nama = document.getElementById('filterNamaJurnal').value.toLowerCase();
+        const jenis = document.getElementById('filterJenisJurnal').value.toLowerCase();
+        const rows = document.querySelectorAll('#tabelLaporanBody tr');
+
+        let totalBaru = 0;
+
+        rows.forEach(row => {
+            // Abaikan baris "Total" atau baris "Data tidak ditemukan" agar tidak error
+            if (row.classList.contains('bg-amber-50') || row.innerText.includes('TIDAK DITEMUKAN')) {
+                return;
+            }
+
+            const textNama = row.children[1]?.innerText.toLowerCase() || "";
+            const textJenis = row.children[2]?.innerText.toLowerCase() || "";
+
+            // Logika Filter
+            const matchNama = textNama.includes(nama);
+            const matchJenis = jenis === "" || textJenis.includes(jenis);
+
+            if (matchNama && matchJenis) {
+                row.style.display = "";
+                // Ambil angka dari kolom nominal (kolom ke-5), hilangkan "Rp" dan titik
+                const nominalText = row.children[4]?.innerText.replace(/[^0-9]/g, "") || "0";
+                totalBaru += parseInt(nominalText);
+            } else {
+                row.style.display = "none";
+            }
+        });
+
+        // UPDATE TAMPILAN TOTALAN DI BARIS PALING BAWAH
+        const totalRow = document.querySelector('#tabelLaporanBody tr.bg-amber-50 td:last-child');
+        if (totalRow) {
+            totalRow.innerText = formatRupiah(totalBaru);
+        }
+    }
+
+    // Hubungkan input search dengan fungsinya
+    document.getElementById('filterNamaJurnal')?.addEventListener('input', filterJurnal);
+    document.getElementById('filterJenisJurnal')?.addEventListener('change', filterJurnal);
+    // Update fungsi bukaMenu lu agar saat klik laporan, data langsung ditarik
+
+    function bukaMenu(menu) {
+        // Sembunyikan semuanya dulu (termasuk Card Dashboard)
+        document.getElementById('menuUtama').classList.add('hidden');
+        document.getElementById('sectionDashboard').classList.add('hidden'); // Sembunyikan Card
+        document.getElementById('sectionRegistrasi').classList.add('hidden');
+        document.getElementById('sectionDaftar').classList.add('hidden');
+        document.getElementById('sectionLaporan').classList.add('hidden');
+        document.getElementById('sectionPinjaman').classList.add('hidden');
+
+        const sectionKas = document.getElementById('viewBukuKas');
+        if (sectionKas) sectionKas.classList.add('hidden');
+
+        // Tampilkan menu yang dipilih
+        if (menu === 'registrasi') {
+            document.getElementById('sectionRegistrasi').classList.remove('hidden');
+        } else if (menu === 'daftar') {
+            document.getElementById('sectionDaftar').classList.remove('hidden');
+            loadAnggota();
+        } else if (menu === 'laporan') {
+            document.getElementById('sectionLaporan').classList.remove('hidden');
+            fetchLaporanLengkap();
+        } else if (menu === 'pinjaman') { // <-- Logika baru buat menu Pinjaman
+            document.getElementById('sectionPinjaman').classList.remove('hidden');
+            loadDaftarPinjaman(); // <-- Pakai fungsi sesuai backup lu
+        } else if (menu === 'bukukas') {
+            if (sectionKas) sectionKas.classList.remove('hidden');
+            fetchBukuKas(); // Panggil fungsi yang kita buat tadi buat narik data pengeluaran
+        }
+    }
+    function kembaliKeMenu() {
+        // 1. Munculkan kembali Highlight Card dan Menu Utama
+        document.getElementById('sectionDashboard').classList.remove('hidden');
+        document.getElementById('menuUtama').classList.remove('hidden');
+
+        // 2. Sembunyikan semua section menu lainnya
+        const menuLain = ['sectionRegistrasi', 'sectionDaftar', 'sectionLaporan', 'sectionPinjaman', 'viewBukuKas'];
+        menuLain.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.add('hidden');
+        });
+    }
+    // 2. LOAD DATA DARI DATABASE
+    async function loadAnggota() {
+        try {
+            const res = await fetch(`${API_BASE_URL}/daftar-anggota`);
+            const dataTerbaru = await res.json();
+
+            // PENTING: Update variabel global allData biar sinkron
+            allData = dataTerbaru;
+
+            const tbody = document.getElementById('tabelBody');
+            tbody.innerHTML = '';
+
+            allData.forEach((m, index) => {
+                // 1. Ambil angka murni dari database (120.000)
+                const totalSimpanan = parseFloat(m.total_simpanan) || 0;
+
+                // 2. Langsung pakai angka utuh, jangan dikurangi lagi
+                const iuranSaja = totalSimpanan;
+                // Ganti bagian tglIndo menjadi seperti ini
+                const tglIndo = formatTglIndo(m.tgl_bergabung); // Otomatis jadi DD/MM/YYYY
+
+                tbody.innerHTML += `
+        <tr class="hover:bg-blue-50 transition cursor-pointer text-sm group">
+        <td class="py-4 px-6 font-mono font-bold text-blue-600 sticky left-0 bg-white group-hover:bg-blue-50 z-10 border-b" onclick="showDetail(${index})">
+            ${m.no_anggota}
+        </td>
+        <td class="py-4 px-6 font-medium whitespace-nowrap border-b">${m.nama_lengkap}</td>
+        <td class="py-4 px-6 text-center text-gray-500 text-xs border-b">${tglIndo}</td>
+        <td class="py-4 px-6 text-center border-b">
+            <span class="text-emerald-500 text-lg">✅</span>
+        </td>
+        <td class="py-4 px-6 text-right font-bold text-blue-700 border-b">
+            Rp${iuranSaja.toLocaleString('id-ID')}
+        </td>
+    </tr>`;
+            });
+            // TAMBAHKAN INI BIAR KARTU DI ATAS UPDATE OTOMATIS
+            loadLaporan();
+        } catch (e) {
+            console.error("Gagal load:", e);
+        }
+
+    }
+
+    function showDetail(index) {
+        const d = allData[index];
+
+        // --- LOGIKA HITUNG TUNGGAKAN (REVISI HISTORI) ---
+        const tglGabung = d.tgl_bergabung ? new Date(d.tgl_bergabung) : new Date();
+        const skrg = new Date();
+
+        let totalHarusnya = 0;
+        let tempTgl = new Date(tglGabung);
+        tempTgl.setDate(1); // Mulai dari tanggal 1 biar akurat
+
+        // 1. Loop untuk menghitung tagihan sesuai periode
+        while (tempTgl <= skrg) {
+            let bln = tempTgl.getMonth() + 1;
+            let thn = tempTgl.getFullYear();
+
+            // Logika 10rb vs 20rb
+            totalHarusnya += (thn < 2022 || (thn === 2022 && bln < 7)) ? 10000 : 20000;
+
+            tempTgl.setMonth(tempTgl.getMonth() + 1);
+        }
+
+        // 2. Hitung Selisih Bulan & Tunggakan
+        const selisihBulan = (skrg.getFullYear() - tglGabung.getFullYear()) * 12 + (skrg.getMonth() - tglGabung.getMonth()) + 1;
+        const sudahBayarBulan = parseInt(d.total_lunas_wajib || 0);
+        const nunggakBulan = Math.max(0, selisihBulan - sudahBayarBulan);
+
+        // 3. Hitung Nominal Tunggakan (Total Harusnya - Total yang sudah dibayar di DB)
+        // Kita asumsikan d.total_simpanan_wajib adalah field yang menampung uang iuran wajib saja
+        const nunggakNominal = Math.max(0, totalHarusnya - parseInt(d.total_simpanan_wajib_saja || 0));
+
+        const saldoSimpanan = parseInt(d.total_simpanan || 0);
+        // ----------------------------------------------
+        // Styling Box Tunggakan
+        const boxColor = nunggakBulan > 0 ? "bg-red-50 border-red-100" : "bg-emerald-50 border-emerald-100";
+        const textColor = nunggakBulan > 0 ? "text-red-700" : "text-emerald-700";
+        const labelColor = nunggakBulan > 0 ? "text-red-400" : "text-emerald-400";
+        // ------------------------------
+
+        const tglGabungIndo = d.tgl_bergabung ? new Date(d.tgl_bergabung).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '-';
+        const part = (d.ttl || "").split(", ");
+        const tempat = part[0] || "-";
+        const tglLahirMentah = part[1] || "";
+        const tglLahirIndo = tglLahirMentah ? new Date(tglLahirMentah).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : "";
+        const ttlCantik = tglLahirIndo !== "" ? `${tempat}, ${tglLahirIndo}` : tempat;
+
+        document.getElementById('detailContent').innerHTML = `
+        <div id="viewMode" class="space-y-4 text-left">
+            <div class="bg-blue-600 p-5 rounded-2xl text-white shadow-lg mb-4">
+                <p class="text-[10px] font-black uppercase opacity-80">Nama Lengkap Anggota</p>
+                <p class="font-bold text-2xl tracking-tight leading-tight">${d.nama_lengkap}</p>
+                <div class="mt-2 inline-block bg-white/20 px-3 py-1 rounded-full text-[10px] font-bold">ID: ${d.no_anggota}</div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 p-4 rounded-2xl border ${boxColor} shadow-inner">
+                <div>
+                    <p class="text-[9px] font-black ${labelColor} uppercase">Tunggakan Iuran</p>
+                    <p class="text-xl font-black ${textColor}">${nunggakBulan} <span class="text-xs font-bold">Bulan</span></p>
+                </div>
+                <div class="text-right">
+                    <p class="text-[9px] font-black ${labelColor} uppercase">Total Tagihan</p>
+                    <p class="text-xl font-black ${textColor}">Rp${nunggakNominal.toLocaleString('id-ID')}</p>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2 mb-2">
+                <div class="p-3 rounded-2xl border border-emerald-100 bg-emerald-50 shadow-sm">
+                    <p class="text-[9px] font-black text-emerald-400 uppercase">Saldo Simpanan</p>
+                    <p class="text-lg font-black text-emerald-700">Rp${saldoSimpanan.toLocaleString('id-ID')}</p>
+                    <p class="text-[10px] font-bold text-emerald-600 opacity-70">Wajib + Sukarela</p>
+                </div>
+
+                <div class="flex items-stretch">
+                    <button onclick="bukaModalTarikSaldo('${d.id_anggota}', ${saldoSimpanan})" 
+                            class="w-full bg-amber-500 hover:bg-amber-600 text-white rounded-2xl text-[10px] font-black shadow-sm transition-all active:scale-95 flex flex-col justify-center items-center gap-1">
+                        <span class="text-lg">💸</span>
+                        <span>TARIK SALDO</span>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="max-h-[45vh] overflow-y-auto pr-2 space-y-3">
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="p-3 bg-gray-50 rounded-xl border">
+                        <p class="text-[9px] font-black text-gray-400 uppercase">NIK (KTP)</p>
+                        <p class="font-bold text-gray-700">${d.nik || '-'}</p>
+                    </div>
+                    <div class="p-3 bg-gray-50 rounded-xl border">
+                        <p class="text-[9px] font-black text-gray-400 uppercase">No. HP / WA</p>
+                        <p class="font-bold text-gray-700">${d.no_hp || '-'}</p>
+                    </div>
+                </div>
+
+                <div class="p-3 bg-gray-50 rounded-xl border">
+                    <p class="text-[9px] font-black text-gray-400 uppercase">Tempat, Tanggal Lahir</p>
+                    <p class="font-bold text-gray-700">${ttlCantik}</p>
+                </div>
+
+                <div class="p-3 bg-gray-50 rounded-xl border">
+                    <p class="text-[9px] font-black text-gray-400 uppercase">Alamat Lengkap</p>
+                    <p class="text-sm text-gray-600 leading-relaxed">${d.alamat || '-'}</p>
+                </div>
+
+                <div class="p-4 bg-blue-50 rounded-xl border border-blue-100 flex justify-between items-center">
+                    <div>
+                        <p class="text-[9px] font-black text-blue-400 uppercase">Tanggal Bergabung</p>
+                        <p class="font-bold text-blue-800">${tglGabungIndo}</p>
+                    </div>
+                    <span class="bg-emerald-500 text-white text-[10px] px-3 py-1 rounded-full font-bold shadow-sm">AKTIF</span>
+                </div>
+                
+                <div id="areaRiwayat" class="hidden mt-4"></div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2 pt-4 border-t">
+                <button onclick="enableEditMode(${index})" class="bg-amber-500 text-white py-2 rounded-xl font-bold text-[10px] shadow-md">✏️ EDIT</button>
+                <button onclick="confirmDelete('${d.no_anggota}')" class="bg-red-600 text-white py-2 rounded-xl font-bold text-[10px] shadow-md">🗑️ HAPUS</button>
+                <button onclick="bukaFormIuran(${d.id_anggota}, '${d.nama_lengkap}')" class="bg-emerald-600 text-white py-2 rounded-xl font-bold text-[10px] shadow-md">➕ IURAN</button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 mt-2">
+                <button onclick="bukaModalAngsuran(${d.id_pinjaman})" class="bg-indigo-600 text-white py-2 px-4 rounded-xl font-bold text-[10px] shadow-md hover:bg-indigo-700 transition-all">💸 BAYAR ANGSURAN</button>
+                <button onclick="lihatRiwayatAngsuran(${d.id_anggota})" class="bg-slate-700 text-white py-2 rounded-xl font-bold text-[10px] shadow-md">📊 RIWAYAT PINJAMAN</button>
+            </div>
+
+            <button onclick="lihatRiwayat(${d.id_anggota})" class="w-full bg-blue-700 text-white py-3 rounded-xl font-black text-sm shadow-lg mt-2 flex items-center justify-center gap-2">📜 LIHAT SEMUA RIWAYAT</button>
+        </div>
+
+        <div id="editMode" class="hidden min-h-[300px]"></div>
+    `;
+        document.getElementById('modalDetail').classList.remove('hidden');
+    }
+    // 2. FUNGSI EDIT (PENGGANTI FORM REGISTRASI)
+    function enableEditMode(index) {
+        const d = allData[index];
+        if (!d) return;
+
+        // Sembunyikan view, munculkan edit
+        document.getElementById('viewMode').classList.add('hidden');
+        const editArea = document.getElementById('editMode');
+        editArea.classList.remove('hidden');
+
+        let part = (d.ttl || "").split(", ");
+        let tempat = part[0] || "";
+        let tglLahirMentah = part[1] || "";
+
+        const amankanTanggal = (tgl) => {
+            try { return tgl ? formatKeIndo(tgl) : ""; }
+            catch (e) { return tgl || ""; }
+        };
+
+        editArea.innerHTML = `
+        <h4 class="text-amber-600 font-bold mb-4 border-b pb-2 uppercase tracking-tighter text-left">Edit Data Anggota</h4>
+        <div class="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
+            <input type="hidden" id="edit_no_anggota" value="${d.no_anggota}">
+            
+            <div class="text-left">
+                <label class="text-[10px] font-bold text-gray-400 uppercase">Nama Lengkap</label>
+                <input type="text" id="edit_nama" class="w-full border p-3 rounded-xl bg-gray-50" value="${d.nama_lengkap || ''}">
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 text-left">
+                <div>
+                    <label class="text-[10px] font-bold text-gray-400 uppercase">NIK</label>
+                    <input type="text" id="edit_nik" class="w-full border p-3 rounded-xl bg-gray-50" value="${d.nik || ''}">
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-gray-400 uppercase">No HP</label>
+                    <input type="text" id="edit_no_hp" class="w-full border p-3 rounded-xl bg-gray-50" value="${d.no_hp || ''}">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 text-left">
+                <div>
+                    <label class="text-[10px] font-bold text-gray-400 uppercase">Jenis Kelamin</label>
+                    <select id="edit_jk" class="w-full border p-3 rounded-xl bg-gray-50">
+                        <option value="Laki-laki" ${d.jenis_kelamin === 'Laki-laki' ? 'selected' : ''}>Laki-laki</option>
+                        <option value="Perempuan" ${d.jenis_kelamin === 'Perempuan' ? 'selected' : ''}>Perempuan</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-gray-400 uppercase">Pekerjaan</label>
+                    <input type="text" id="edit_pekerjaan" class="w-full border p-3 rounded-xl bg-gray-50" value="${d.pekerjaan || ''}">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 text-left">
+                <div>
+                    <label class="text-[10px] font-bold text-gray-400 uppercase">Tempat Lahir</label>
+                    <input type="text" id="edit_tempat" class="w-full border p-3 rounded-xl bg-gray-50" value="${tempat}">
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-gray-400 uppercase italic">Tgl Lahir</label>
+                    <input type="text" id="edit_tgl_lahir" class="w-full border p-3 rounded-xl bg-gray-50" value="${amankanTanggal(tglLahirMentah)}">
+                </div>
+            </div>
+
+            <div class="text-left">
+                <label class="block text-[10px] font-bold text-gray-400 uppercase">Tgl Bergabung</label>
+                <input type="text" id="edit_tgl_gabung" class="w-full border p-3 rounded-xl bg-gray-50" value="${amankanTanggal(d.tgl_bergabung)}">
+            </div>
+
+            <div class="text-left">
+                <label class="text-[10px] font-bold text-gray-400 uppercase">Alamat Lengkap</label>
+                <textarea id="edit_alamat" class="w-full border p-3 rounded-xl bg-gray-50" rows="2">${d.alamat || ''}</textarea>
+            </div>
+            
+            <div class="flex gap-2 pt-4 border-t sticky bottom-0 bg-white">
+                <button onclick="saveEdit()" class="flex-1 bg-blue-600 text-white py-4 rounded-xl font-black shadow-lg">💾 SIMPAN</button>
+                <button onclick="showDetail(${index})" class="px-6 bg-gray-100 text-gray-500 py-4 rounded-xl font-bold">BATAL</button>
+            </div>
+        </div>
+    `;
+    }
+    // 3. FUNGSI SIMPAN (PASTIKAN BACKEND TERHUBUNG)
+    async function saveEdit() {
+        // 1. Tampilkan Loading (Biar admin nggak klik berkali-kali)
+        Swal.fire({
+            title: 'Menyimpan...',
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
+        });
+
+        // 2. Ambil semua data dari input edit (PASTIKAN ID SAMA DENGAN FORM EDIT)
+        const payload = {
+            no_anggota: document.getElementById('edit_no_anggota').value,
+            nama_lengkap: document.getElementById('edit_nama').value,
+            nik: document.getElementById('edit_nik').value,
+            no_hp: document.getElementById('edit_no_hp').value,
+            jenis_kelamin: document.getElementById('edit_jk').value,
+            pekerjaan: document.getElementById('edit_pekerjaan').value,
+            alamat: document.getElementById('edit_alamat').value,
+            tgl_bergabung: keFormatSistem(document.getElementById('edit_tgl_gabung').value),
+            edit_tempat: document.getElementById('edit_tempat').value,
+            edit_tgl_lahir: keFormatSistem(document.getElementById('edit_tgl_lahir').value)
+        };
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/update-anggota`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil!',
+                    text: 'Data anggota telah diperbarui.',
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+
+                closeModal();   // Tutup modal
+                loadAnggota();  // Refresh tabel biar data terbaru muncul
+            } else {
+                throw new Error(result.message || "Gagal update data");
+            }
+        } catch (error) {
+            console.error("Error saat save:", error);
+            Swal.fire('Gagal!', error.message, 'error');
+        }
+    }
+    // 6. HAPUS BERSIH (ANGGOTA & IURANNYA)
+    function confirmDelete(no_anggota) {
+        Swal.fire({
+            title: 'Yakin mau hapus?',
+            text: "Data anggota " + no_anggota + " dan riwayat iurannya akan hilang permanen!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            confirmButtonText: 'Ya, Hapus!'
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                const res = await fetch(`${API_BASE_URL}/hapus-anggota/${no_anggota}`, { method: 'DELETE' });
+                if (res.ok) {
+                    Swal.fire('Terhapus!', 'Data telah dibuang.', 'success');
+                    closeModal();
+                    loadAnggota();
+                }
+            }
+        });
+    }
+    async function bukaFormIuran(id, nama) {
+        const thnSekarang = new Date().getFullYear();
+        const blnSekarang = new Date().getMonth() + 1;
+        const tahunMulai = 2013; // Sesuai data awal migrasi lu
+        const tahunSelesai = new Date().getFullYear() + 2; // Sampai 5 tahun ke depan
+        let opsiTahun = '';
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/config`);
+            const config = await response.json();
+            const NOMINAL_WAJIB_DB = config ? config.iuran_wajib : 20000;
+
+            // Buat daftar nama bulan untuk dropdown
+            const daftarBulan = [
+                "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+                "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+            ];
+
+            for (let thn = tahunMulai; thn <= tahunSelesai; thn++) {
+                opsiTahun += `<option value="${thn}" ${thn === thnSekarang ? 'selected' : ''}>${thn}</option>`;
+            }
+
+            Swal.fire({
+                title: `Tambah Iuran: ${nama}`,
+                html: `
+            <div class="text-left space-y-3 pb-24">
+                <div>
+                    <label class="text-xs font-bold text-gray-500">Jenis Iuran</label>
+                    <select id="swal_jenis" class="w-full p-2 border rounded text-sm bg-gray-50" 
+                        onchange="
+                            const inputJml = document.getElementById('swal_jumlah');
+                            if(this.value === 'wajib') {
+                                inputJml.value = ${NOMINAL_WAJIB_DB};
+                                inputJml.readOnly = true; // Kunci input
+                                inputJml.classList.add('bg-gray-100', 'cursor-not-allowed'); // Kasih tanda abu-abu
+                            } else {
+                                inputJml.value = ''; // Kosongkan biar admin isi sendiri
+                                inputJml.readOnly = false; // Buka kunci (Editable)
+                                inputJml.classList.remove('bg-gray-100', 'cursor-not-allowed'); // Balikin jadi putih
+                                inputJml.focus(); // Langsung arahin kursor ke situ
+                            }
+                        ">
+                        <option value="wajib">Iuran Wajib</option>
+                        <option value="sukarela">Iuran Sukarela</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-500">Nominal per Bulan (Rp)</label>
+                    <input type="number" id="swal_jumlah" 
+                        value="${NOMINAL_WAJIB_DB}" 
+                        class="w-full p-2 border rounded text-sm font-bold bg-gray-100 cursor-not-allowed" 
+                        readonly>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="text-xs font-bold text-gray-500">Mulai Bulan</label>
+                            <select id="swal_bulan" class="w-full p-2 border rounded text-sm transition-all duration-200"
+                                onfocus="this.size=5; this.classList.add('ring-2', 'ring-blue-500')" 
+                                onblur="this.size=1; this.classList.remove('ring-2', 'ring-blue-500')" 
+                                onchange="
+                                    this.size=1; 
+                                    this.blur();
+                                    // Efek visual 'Bukti Klik'
+                                    this.classList.add('bg-green-100'); 
+                                    setTimeout(() => this.classList.remove('bg-green-100'), 500);
+                                ">
+                                ${daftarBulan.map((namaBulan, index) => `
+                                    <option value="${index + 1}" ${index + 1 === blnSekarang ? 'selected' : ''}>
+                                        ${namaBulan}
+                                    </option>
+                                `).join('')}
+                            </select>
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-gray-500">Tahun</label>
+                            <select id="swal_tahun" 
+                                class="w-full p-2 border rounded text-sm bg-white transition-all duration-200"
+                                onfocus="this.size=5; this.classList.add('ring-2', 'ring-blue-500')" 
+                                onblur="this.size=1; this.classList.remove('ring-2', 'ring-blue-500')" 
+                                onchange="
+                                    this.size=1; 
+                                    this.blur();
+                                    // Efek Bukti Klik: Kedip Hijau
+                                    this.classList.add('bg-green-100'); 
+                                    setTimeout(() => this.classList.remove('bg-green-100'), 500);
+                                ">
+                                ${opsiTahun}
+                            </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-500">Bayar untuk Berapa Bulan?</label>
+                    <input type="number" id="swal_total_bulan" value="1" min="1" class="w-full p-2 border rounded text-sm font-bold text-blue-600">
+                </div>
+            </div>
+            `,
+                showCancelButton: true,
+                confirmButtonText: 'Simpan Pembayaran',
+                confirmButtonColor: '#059669', // Warna Emerald biar cakep
+                preConfirm: () => {
+                    return {
+                        id_anggota: id,
+                        jenis_iuran: document.getElementById('swal_jenis').value,
+                        jumlah_per_bulan: document.getElementById('swal_jumlah').value,
+                        bulan_mulai: document.getElementById('swal_bulan').value,
+                        tahun_mulai: document.getElementById('swal_tahun').value,
+                        total_bulan: document.getElementById('swal_total_bulan').value
+                    }
+                }
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    const res = await fetch(`${API_BASE_URL}/tambah-iuran-bulk`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(result.value)
+                    });
+
+                    if (res.ok) {
+                        await loadAnggota();
+                        if (typeof loadLaporan === "function") await loadLaporan();
+
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Berhasil!',
+                            text: `Iuran telah dicatat.`,
+                            timer: 1500,
+                            showConfirmButton: false
+                        });
+
+                        if (typeof closeModal === "function") closeModal();
+                    } else {
+                        Swal.fire('Gagal!', 'Terjadi kesalahan saat menyimpan.', 'error');
+                    }
+                }
+            });
+
+        } catch (err) {
+            console.error("Gagal load config:", err);
+            Swal.fire('Error', 'Gagal mengambil konfigurasi dari server', 'error');
+        }
+    }
+    function closeModal() {
+        // Sembunyikan modal
+        const modal = document.getElementById('modalDetail');
+        if (modal) modal.classList.add('hidden');
+
+        // Reset status view/edit agar tidak bentrok di pembukaan berikutnya
+        const viewMode = document.getElementById('viewMode');
+        const editMode = document.getElementById('editMode');
+        if (viewMode) viewMode.classList.remove('hidden');
+        if (editMode) {
+            editMode.classList.add('hidden');
+            editMode.innerHTML = '';
+        }
+
+        // PENTING: Jangan panggil formPinjaman.submit() atau fungsi simpan di sini!
+    }
+
+    // HANDLER REGISTRASI (PASTIKAN INI ADA & LENGKAP)
+    document.getElementById('formAnggota').addEventListener('submit', async (e) => {
+        e.preventDefault(); // Biar halaman gak refresh pas diklik
+
+        // Ambil data dari inputan form
+        const payload = {
+            nama_lengkap: document.getElementById('nama').value,
+            nik: document.getElementById('nik').value,
+            no_hp: document.getElementById('no_hp').value,
+            alamat: document.getElementById('alamat').value,
+
+            // 1. Tambahin 'keFormatSistem' di sini
+            tgl_bergabung: keFormatSistem(document.getElementById('tgl_bergabung').value),
+
+            jenis_kelamin: document.getElementById('jenis_kelamin').value,
+            pekerjaan: document.getElementById('pekerjaan').value,
+
+            // 2. Tambahin juga di bagian TTL biar tanggal lahirnya bener masuk ke sistem
+            ttl: document.getElementById('tempat_lahir').value + ", " + keFormatSistem(document.getElementById('tgl_lahir').value),
+
+            iuran_wajib: parseInt(document.getElementById('iuran_wajib').value) || 0,
+            iuran_sukarela: parseInt(document.getElementById('iuran_sukarela').value) || 0
+        };
+        try {
+            // Tampilkan loading biar admin gak klik berkali-kali
+            Swal.fire({ title: 'Memproses...', allowOutsideClick: false, didOpen: () => { Swal.showLoading() } });
+
+            const res = await fetch(`${API_BASE_URL}/tambah-anggota`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+                await loadAnggota();
+                await loadLaporan();
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil!',
+                    text: `Anggota Baru: ${data.no_anggota}`,
+                    confirmButtonText: 'Mantap!'
+                }).then(() => {
+                    document.getElementById('formAnggota').reset(); // Kosongkan form
+                    kembaliKeMenu(); // Balik ke depan
+                });
+            } else {
+                throw new Error(data.message || "Gagal simpan data");
+            }
+        } catch (error) {
+            console.error(error);
+            Swal.fire('Waduh!', 'Gagal simpan: ' + error.message, 'error');
+        }
+    });
+    // FITUR PENCARIAN LIVE (TAMBAHKAN DI PALING BAWAH SCRIPT)
+    document.getElementById('searchInput').addEventListener('input', function (e) {
+        const keyword = e.target.value.toLowerCase();
+        const tbody = document.getElementById('tabelBody');
+
+        // 1. Logika Filter Tetap Sama (Nama atau No Anggota)
+        const filteredData = allData.filter(item => {
+            return (item.nama_lengkap && item.nama_lengkap.toLowerCase().includes(keyword)) ||
+                (item.no_anggota && item.no_anggota.toLowerCase().includes(keyword));
+        });
+
+        tbody.innerHTML = '';
+
+        // 2. Colspan disesuaikan jadi 5 agar memenuhi lebar tabel baru
+        if (filteredData.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" class="py-10 text-center text-gray-400 italic">Data tidak ditemukan...</td></tr>`;
+            return;
+        }
+
+        filteredData.forEach((m) => {
+            // 3. Cari index asli agar showDetail tetap akurat
+            const originalIndex = allData.findIndex(orig => orig.no_anggota === m.no_anggota);
+
+            // 4. Ambil angka "Murni" dari Backend
+            // Karena SQL sudah memfilter pendaftaran, variabel ini sudah otomatis bersih
+            const iuranSaja = parseFloat(m.total_simpanan) || 0;
+
+            // 5. Gunakan format tanggal yang konsisten dengan loadAnggota
+            const tglIndo = formatTglIndo(m.tgl_bergabung);
+
+            tbody.innerHTML += `
+            <tr class="border-b hover:bg-blue-50 transition cursor-pointer text-sm group">
+                <td class="py-4 px-6 font-mono font-bold text-blue-600 sticky left-0 bg-white group-hover:bg-blue-50 z-10 border-b" onclick="showDetail(${originalIndex})">
+                    ${m.no_anggota}
+                </td>
+                <td class="py-4 px-6 font-medium whitespace-nowrap border-b">${m.nama_lengkap}</td>
+                <td class="py-4 px-6 text-center text-gray-500 text-xs border-b">${tglIndo}</td>
+                <td class="py-4 px-6 text-center border-b">
+                    <span class="text-emerald-500 text-lg">✅</span>
+                </td>
+                <td class="py-4 px-6 text-right font-bold text-blue-700 border-b">
+                    Rp${iuranSaja.toLocaleString('id-ID')}
+                </td>
+            </tr>`;
+        });
+    });
+    async function lihatRiwayat(id) { // Nama variabel di sini adalah 'id'
+        const area = document.getElementById('areaRiwayat');
+
+        // LOGIKA TOGGLE
+        if (!area.classList.contains('hidden')) {
+            area.classList.add('hidden');
+            return;
+        }
+
+        area.innerHTML = '<p class="text-center text-[10px] animate-pulse py-4">Loading...</p>';
+        area.classList.remove('hidden');
+
+        try {
+            // PERBAIKAN: Ganti ${idAnggota} jadi ${id} agar sesuai dengan parameter di atas
+            const res = await fetch(`${API_BASE_URL}/riwayat-iuran/${id}`);
+            const data = await res.json();
+
+            let html = `
+            <div class="bg-white border-2 border-blue-100 rounded-2xl overflow-hidden shadow-inner mb-4">
+                <div class="bg-blue-50 p-2 text-[9px] font-bold text-blue-600 flex justify-between uppercase">
+                    <span>Log Transaksi</span>
+                    <span>Klik tombol Riwayat lagi untuk tutup</span>
+                </div>
+                <table class="min-w-full text-[10px]">
+                    <thead class="bg-gray-50 border-b text-gray-400">
+                        <tr>
+                            <th class="p-2 text-left">Tgl Input</th>
+                            <th class="p-2 text-left">Periode</th>
+                            <th class="p-2 text-right">Jumlah</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y">`;
+
+            data.forEach(t => {
+                const tglSistem = formatTglIndo(t.created_at, 'jam');
+                const nominal = parseFloat(t.jumlah_bayar) || 0;
+
+                // LOGIKA WARNA & SIMBOL
+                // Kalau nominal minus (< 0), teks jadi merah (rose-600)
+                // Kalau nominal plus (>= 0), teks tetap hijau (emerald-600)
+                const warnaTeks = nominal < 0 ? 'text-rose-600' : 'text-emerald-600';
+
+                // Kita rapikan tampilannya: Kalau minus, kasih tanda "-" di depan Rp
+                const teksNominal = (nominal < 0 ? '-' : '') + `Rp${Math.abs(nominal).toLocaleString('id-ID')}`;
+
+                html += `
+                <tr class="hover:bg-blue-50">
+                    <td class="p-2 text-gray-400 font-mono">${tglSistem}</td>
+                    <td class="p-2 font-bold">
+                        ${t.bulan_iuran}/${t.tahun_iuran} 
+                        <span class="text-[8px] text-gray-400">(${t.jenis_iuran})</span>
+                        ${nominal < 0 ? '<br><span class="text-[9px] text-rose-500 font-black">PENGAMBILAN</span>' : ''}
+                    </td>
+                    <td class="p-2 text-right font-bold ${warnaTeks}">
+                        ${teksNominal}
+                    </td>
+                </tr>`;
+            });
+
+            html += `</tbody></table></div>`;
+            area.innerHTML = html;
+
+            area.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+        } catch (e) {
+            // Sekarang kalau gagal, kita bisa tau errornya di console (F12)
+            console.error("Detail Error Riwayat:", e);
+            area.innerHTML = '<p class="text-red-500 text-xs text-center">Gagal load data. Cek koneksi API.</p>';
+        }
+    }
+
+    // Tambahkan fungsi ini di bagian paling bawah script lu
+    // FUNGSI UNTUK MENUTUP MODAL (Gue buatin biar sinkron sama tombolnya)
+    function closeModal() {
+        const modal = document.getElementById('modalDetail');
+        if (modal) {
+            modal.classList.add('hidden'); // Sembunyikan modal
+        }
+
+        // Sembunyikan juga area riwayat kalau lagi terbuka
+        const areaRiwayat = document.getElementById('areaRiwayat');
+        if (areaRiwayat) {
+            areaRiwayat.classList.add('hidden');
+        }
+    }
+    // Fungsi: Ubah dari sistem (YYYY-MM-DD) ke tampilan Admin (DD/MM/YYYY)
+    function formatKeIndo(dateStr) {
+        if (!dateStr || dateStr === "undefined") return "";
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return dateStr; // Jika sudah format Indo, balikin aja
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        return `${day}/${month}/${year}`;
+    }
+    // Fungsi ini mengubah angka (1-12) dari database menjadi teks nama bulan
+    function getNamaBulan(angka) {
+        const daftarBulan = [
+            "", "Januari", "Februari", "Maret", "April", "Mei",
+            "Juni", "Juli", "Agustus", "September", "Oktober",
+            "November", "Desember"
+        ];
+        return daftarBulan[parseInt(angka)] || "-";
+    }
+    function formatRupiah(angka) {
+        const nominal = parseFloat(angka) || 0;
+        return 'Rp' + nominal.toLocaleString('id-ID');
+    }
+
+    // Fungsi: Ubah dari ketikan Admin (DD/MM/YYYY) ke standar Sistem (YYYY-MM-DD)
+    function keFormatSistem(tglIndo) {
+        if (!tglIndo || !tglIndo.includes('/')) return tglIndo;
+        const parts = tglIndo.split('/');
+        if (parts.length !== 3) return tglIndo;
+        // Susun jadi YYYY-MM-DD
+        return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    }
+    // 1. Variabel Global untuk melacak laporan mana yang sedang dibuka
+    let activeReportType = '';
+
+    // 2. Fungsi untuk memunculkan sub-menu laporan (Jurnal/Kendali)
+    function showSubLaporan(type) {
+        activeReportType = type;
+
+        // 1. Sembunyikan Menu Pilihan & Tombol Back Utama
+        document.getElementById('menuPilihanLaporan').classList.add('hidden');
+        document.getElementById('btnBackToMain').classList.add('hidden');
+
+        // 2. Munculkan Area Konten Detail
+        document.getElementById('kontenLaporanTerpilih').classList.remove('hidden');
+
+        // --- LOGIKA BARU: KONTROL HEADER FILTER ---
+        // Sembunyikan filter hanya jika masuk ke menu 'cetak'
+        const headerFilter = document.getElementById('headerFilterLaporan');
+        if (headerFilter) {
+            if (type === 'cetak') {
+                headerFilter.classList.add('hidden');
+            } else {
+                headerFilter.classList.remove('hidden');
+            }
+        }
+        // ------------------------------------------
+
+        // 3. SAPU BERSIH: Kosongkan isi tabel sebelum ganti tampilan
+        document.getElementById('tabelLaporanBody').innerHTML = '';
+        document.getElementById('tabelKendaliBody').innerHTML = '';
+
+        if (document.getElementById('resSaldoAwal')) {
+            document.getElementById('resSaldoAwal').innerText = 'Rp 0';
+            document.getElementById('resTotalMasuk').innerText = 'Rp 0';
+            document.getElementById('resTotalKeluar').innerText = 'Rp 0';
+            document.getElementById('resSaldoAkhir').innerText = 'Rp 0';
+        }
+
+        // 4. Toggle Visibility (Sembunyikan semua dulu, baru tampilkan yang dipilih)
+        document.getElementById('viewJurnal').classList.add('hidden');
+        document.getElementById('viewKendali').classList.add('hidden');
+        document.getElementById('viewArusKas').classList.add('hidden');
+        document.getElementById('viewCetak').classList.add('hidden');
+
+        if (type === 'jurnal') document.getElementById('viewJurnal').classList.remove('hidden');
+        if (type === 'kendali') document.getElementById('viewKendali').classList.remove('hidden');
+        if (type === 'aruskas') document.getElementById('viewArusKas').classList.remove('hidden');
+        if (type === 'cetak') document.getElementById('viewCetak').classList.remove('hidden');
+
+        // 5. Jalankan Fungsi Refresh Data (Hanya jika bukan menu cetak)
+        if (type !== 'cetak') {
+            refreshLaporanAktif();
+        }
+    }
+
+    async function printLaporan(jenis) {
+        if (jenis === 'aruskas') {
+            const sekarang = new Date();
+            const thnSekarang = sekarang.getFullYear();
+            const blnSekarang = String(sekarang.getMonth() + 1).padStart(2, '0');
+
+            // GENERATE TAHUN DINAMIS
+            let opsiTahun = '';
+            for (let y = thnSekarang + 1; y >= 2024; y--) {
+                opsiTahun += `<option value="${y}" ${y === thnSekarang ? 'selected' : ''}>${y}</option>`;
+            }
+
+            const { value: formValues } = await Swal.fire({
+                title: '',
+                html: `
+                <div class="p-2">
+                    <h3 class="text-lg font-black mb-4 uppercase text-indigo-600">Periode Cetak Laporan</h3>
+                    <div class="space-y-4 text-left">
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Pilih Bulan</label>
+                            <select id="swal-bulan" class="w-full p-3 rounded-xl border font-bold text-sm bg-gray-50">
+                                <option value="01" ${blnSekarang === '01' ? 'selected' : ''}>Januari</option>
+                                <option value="02" ${blnSekarang === '02' ? 'selected' : ''}>Februari</option>
+                                <option value="03" ${blnSekarang === '03' ? 'selected' : ''}>Maret</option>
+                                <option value="04" ${blnSekarang === '04' ? 'selected' : ''}>April</option>
+                                <option value="05" ${blnSekarang === '05' ? 'selected' : ''}>Mei</option>
+                                <option value="06" ${blnSekarang === '06' ? 'selected' : ''}>Juni</option>
+                                <option value="07" ${blnSekarang === '07' ? 'selected' : ''}>Juli</option>
+                                <option value="08" ${blnSekarang === '08' ? 'selected' : ''}>Agustus</option>
+                                <option value="09" ${blnSekarang === '09' ? 'selected' : ''}>September</option>
+                                <option value="10" ${blnSekarang === '10' ? 'selected' : ''}>Oktober</option>
+                                <option value="11" ${blnSekarang === '11' ? 'selected' : ''}>November</option>
+                                <option value="12" ${blnSekarang === '12' ? 'selected' : ''}>Desember</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Pilih Tahun</label>
+                            <select id="swal-tahun" class="w-full p-3 rounded-xl border font-bold text-sm bg-gray-50">
+                                ${opsiTahun}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            `,
+                showCancelButton: true,
+                confirmButtonText: 'SIAPKAN DOKUMEN',
+                confirmButtonColor: '#4f46e5',
+                preConfirm: () => {
+                    return {
+                        bulan: document.getElementById('swal-bulan').value,
+                        tahun: document.getElementById('swal-tahun').value,
+                        bulanTxt: document.getElementById('swal-bulan').options[document.getElementById('swal-bulan').selectedIndex].text
+                    }
+                }
+            });
+
+            if (!formValues) return;
+
+            try {
+                Swal.showLoading();
+                const res = await fetch(`/api/laporan-periode?bulan=${formValues.bulan}&tahun=${formValues.tahun}`);
+                const result = await res.json();
+
+                if (result.status === 'success') {
+                    const d = result.data;
+                    Swal.close();
+
+                    if (d.list_transaksi.length === 0) {
+                        Swal.fire('Data Kosong', `Gak ada transaksi di bulan ${formValues.bulanTxt} ${formValues.tahun}`, 'warning');
+                        return;
+                    }
+
+                    const ringkasanMasuk = {};
+                    const ringkasanKeluar = {};
+                    let totalPinjaman = 0;
+
+                    // Mapping Label kategori agar cantik di laporan
+                    const labelKategoriMap = {
+                        'ATK': 'BIAYA ALAT TULIS KANTOR (ATK)',
+                        'KONSUMSI': 'BIAYA KONSUMSI',
+                        'TRANSPORTASI': 'BIAYA TRANSPORTASI',
+                        'OPERASIONAL': 'BIAYA OPERASIONAL',
+                        'LAIN-LAIN': 'BIAYA LAIN-LAIN'
+                    };
+
+                    d.list_transaksi.forEach(t => {
+                        const masuk = parseFloat(t.masuk || 0);
+                        const keluar = parseFloat(t.keluar || 0);
+                        const ket = (t.ket || "").toUpperCase();
+                        const kategoriDB = (t.kategori || "").toUpperCase(); // Pastikan backend kirim ini
+
+                        if (masuk > 0) {
+                            let kat = "PENDAPATAN LAIN-LAIN";
+                            if (ket.includes("WAJIB")) kat = "TOTAL IURAN WAJIB";
+                            else if (ket.includes("SUKARELA")) kat = "TOTAL IURAN SUKARELA";
+                            else if (ket.includes("POKOK") && !ket.includes("ANGSURAN")) kat = "TOTAL IURAN POKOK";
+                            else if (ket.includes("PENDAFTARAN")) kat = "TOTAL BIAYA PENDAFTARAN";
+                            else if (ket.includes("ANGSURAN")) kat = "TOTAL POKOK ANGSURAN";
+                            else if (ket.includes("BUNGA") || ket.includes("JASA")) kat = "TOTAL PENDAPATAN JASA/BUNGA";
+                            else if (ket.includes("ADMIN")) kat = "TOTAL ADMIN PINJAMAN";
+
+                            ringkasanMasuk[kat] = (ringkasanMasuk[kat] || 0) + masuk;
+
+                        } else if (keluar > 0) {
+                            // 1. Jalur Pencairan Pinjaman
+                            if (ket.includes("PENCAIRAN PINJAMAN")) {
+                                totalPinjaman += keluar;
+                            }
+                            // 2. JALUR BARU: Khusus Penarikan Simpanan Anggota
+                            else if (ket.includes("TARIK_SIMPANAN")) {
+                                let namaKatTarik = "TOTAL PENARIKAN SIMPANAN ANGGOTA";
+                                ringkasanKeluar[namaKatTarik] = (ringkasanKeluar[namaKatTarik] || 0) + keluar;
+                            }
+                            // 3. Jalur Operasional (Sisanya masuk sini)
+                            else {
+                                let namaKategori = labelKategoriMap[kategoriDB] || (kategoriDB ? `BIAYA ${kategoriDB}` : "BIAYA OPERASIONAL LAINNYA");
+                                ringkasanKeluar[namaKategori] = (ringkasanKeluar[namaKategori] || 0) + keluar;
+                            }
+                        }
+                    });
+
+                    // RENDER TABEL PENDAPATAN
+                    document.getElementById('p_list_pendapatan').innerHTML = Object.entries(ringkasanMasuk).map(([nama, total]) =>
+                        `<tr><td class="border border-black p-2 text-center">-</td><td class="border border-black p-2 uppercase">${nama}</td><td class="border border-black p-2 text-right">${formatRupiah(total)}</td><td class="border border-black p-2 text-right">-</td></tr>`
+                    ).join('');
+
+                    // RENDER TABEL PENGELUARAN (Sudah Terpecah ATK, Konsumsi, dsb)
+                    document.getElementById('p_list_pengeluaran').innerHTML = Object.entries(ringkasanKeluar).map(([nama, total]) =>
+                        `<tr><td class="border border-black p-2 text-center">-</td><td class="border border-black p-2 uppercase">${nama}</td><td class="border border-black p-2 text-right">${formatRupiah(total)}</td><td class="border border-black p-2 text-right">-</td></tr>`
+                    ).join('');
+
+                    // HITUNG TOTAL OPS UNTUK RINGKASAN
+                    const totalOps = Object.values(ringkasanKeluar).reduce((a, b) => a + b, 0);
+
+                    // UPDATE DATA HEADER & TOTALS
+                    document.getElementById('p_periode_txt').innerText = `${formValues.bulanTxt} ${formValues.tahun}`;
+                    document.getElementById('p_saldo_awal').innerText = formatRupiah(d.saldo_awal);
+                    document.getElementById('p_total_masuk_mutasi').innerText = formatRupiah(d.pemasukan);
+                    document.getElementById('p_total_masuk_final').innerText = formatRupiah(d.pemasukan);
+                    document.getElementById('p_total_keluar_mutasi').innerText = formatRupiah(totalOps);
+                    document.getElementById('p_total_pinjaman').innerText = formatRupiah(totalPinjaman);
+                    document.getElementById('p_total_keluar_final').innerText = formatRupiah(d.pengeluaran);
+                    document.getElementById('p_saldo_akhir').innerText = formatRupiah(d.saldo_akhir);
+
+                    // EKSEKUSI PRINT
+                    setTimeout(() => { window.print(); }, 500);
+                }
+            } catch (err) {
+                console.error(err);
+                Swal.fire('Error', 'Gagal memproses laporan', 'error');
+            }
+        }
+    }
+    // 3. Fungsi untuk kembali dari tampilan tabel ke menu pilihan laporan
+    function backToSubMenuLaporan() {
+        // 1. Sembunyikan container konten detail
+        document.getElementById('kontenLaporanTerpilih').classList.add('hidden');
+
+        // 2. Tampilkan kembali Menu Pilihan Laporan & Tombol Back Dashboard
+        document.getElementById('menuPilihanLaporan').classList.remove('hidden');
+        document.getElementById('btnBackToMain').classList.remove('hidden');
+
+        // 3. SAPU BERSIH: Sembunyikan semua view laporan agar tidak tumpang tindih nantinya
+        document.getElementById('viewJurnal').classList.add('hidden');
+        document.getElementById('viewKendali').classList.add('hidden');
+        document.getElementById('viewArusKas').classList.add('hidden');
+        document.getElementById('viewCetak').classList.add('hidden');
+
+        // 4. RESET DATA: Kosongkan isi tabel biar gak berat & memori tetap lega
+        if (document.getElementById('tabelLaporanBody')) document.getElementById('tabelLaporanBody').innerHTML = '';
+        if (document.getElementById('tabelKendaliBody')) document.getElementById('tabelKendaliBody').innerHTML = '';
+        if (document.getElementById('tabelDetailArusKas')) document.getElementById('tabelDetailArusKas').innerHTML = '';
+
+        // 5. Reset Status Laporan Aktif
+        activeReportType = null;
+    }
+
+    // 4. Fungsi trigger untuk refresh data
+    function refreshLaporanAktif() {
+        if (activeReportType === 'jurnal') {
+            fetchLaporanLengkap(); // Memanggil fungsi laporan jurnal existing lu
+        } else if (activeReportType === 'kendali') {
+            renderBukuKendali(); // Akan kita buat di Bagian 2
+        } else if (activeReportType === 'aruskas') {
+            loadDataArusKas(); // <-- TAMBAHAN: Fungsi tarik data arus kas
+        }
+    }
+
+    // 5. Membuat list tahun otomatis di dropdown lapTahun
+    function generateTahunFilter() {
+        const sel = document.getElementById('lapTahun');
+        if (!sel) return;
+
+        const now = new Date().getFullYear();
+        const tahunAwalKoperasi = 2013; // Batas sejarah paling lama
+
+        sel.innerHTML = '';
+
+        // Kita looping dari tahun depan (now + 1) sampai 2013
+        // Pakai now + 1 supaya kalau ada yang bayar buat tahun depan, pilihannya sudah ada
+        for (let i = now + 1; i >= tahunAwalKoperasi; i--) {
+            const selected = (i === now) ? 'selected' : '';
+            sel.insertAdjacentHTML('beforeend', `<option value="${i}" ${selected}>${i}</option>`);
+        }
+    }
+    // Jalankan generator tahun saat halaman pertama kali dibuka
+    document.addEventListener('DOMContentLoaded', () => {
+        console.log("Sistem Siap...");
+
+        // 0. Update Header (Nama & Logo Koperasi) dulu
+        applyHeaderConfig();
+
+        // 1. Render filter untuk menu Pinjaman (Yang baru kita buat)
+        renderDropdownFilters();
+
+        // 2. Render filter untuk laporan lain (Yang lu sebutkan tadi)
+        if (typeof generateTahunFilter === "function") {
+            generateTahunFilter();
+        }
+
+        // 3. Load Data-data awal
+        loadLaporan();          // Update Dashboard
+        loadDaftarPinjaman();   // Isi tabel pinjaman
+    });
+    async function renderBukuKendali() {
+        const tahun = document.getElementById('lapTahun').value;
+        const tbody = document.getElementById('tabelKendaliBody');
+        const now = new Date();
+
+        // --- AMBIL CONFIG SECARA TERPISAH ---
+        let nominalAturan = 50000;
+        try {
+            const resConfig = await fetch(`${API_BASE_URL}/api/config`);
+            const config = await resConfig.json();
+            nominalAturan = config.iuran_wajib || 20000;
+        } catch (err) { console.error("Gagal load config"); }
+
+        const labelSingkat = (nominalAturan / 1000) + "k";
+        let countAnggota = 0, totalUangLunas = 0, totalUangTunggakan = 0;
+
+        const blnBerjalan = (tahun == now.getFullYear()) ? now.getMonth() + 1 : (tahun < now.getFullYear() ? 12 : 0);
+        tbody.innerHTML = '<tr><td colspan="15" class="p-10 text-center animate-pulse italic text-blue-500">Menghitung...</td></tr>';
+
+        try {
+            const [resAnggota, resTrans] = await Promise.all([
+                fetch(`${API_BASE_URL}/daftar-anggota?v=${Date.now()}`),
+                fetch(`${API_BASE_URL}/api/laporan-transaksi?tahun=${tahun}&v=${Date.now()}`)
+            ]);
+
+            const dataAnggota = await resAnggota.json();
+            const resTransJson = await resTrans.json();
+
+            // --- FIX DI SINI: Unboxing data transaksi ---
+            const dataTrans = resTransJson.transaksi || [];
+
+            tbody.innerHTML = '';
+
+            // Proteksi jika dataAnggota bukan array
+            if (!Array.isArray(dataAnggota)) throw new Error("Data anggota bukan array");
+
+            dataAnggota.forEach(m => {
+                const tglGabung = new Date(m.tgl_bergabung);
+                const blnGabung = tglGabung.getMonth() + 1;
+                const thnGabung = tglGabung.getFullYear();
+
+                if (thnGabung > tahun) return;
+                countAnggota++;
+
+                let row = `<tr class="hover:bg-gray-50 transition-colors">
+                <td class="p-3 sticky left-0 bg-white font-bold border-b shadow-sm z-10 text-blue-700 text-[10px] nama-truncate">${m.nama_lengkap}</td>`;
+
+                let totalBayarTahunIni = 0;
+
+                for (let b = 1; b <= 12; b++) {
+                    // Sekarang .find() aman karena dataTrans sudah dipastikan Array
+                    const ada = dataTrans.find(t => t.id_anggota === m.id_anggota && t.bulan_iuran === b && t.jenis_iuran === 'wajib');
+
+                    let text = "-";
+                    let style = "text-center p-3 border-b text-gray-300";
+
+                    if (ada) {
+                        text = labelSingkat;
+                        style = "text-center p-3 border-b text-emerald-600 font-bold bg-emerald-50";
+                        totalBayarTahunIni += parseFloat(ada.jumlah_bayar);
+                    } else {
+                        const sudahWajibBayar = (tahun > thnGabung) || (tahun == thnGabung && b >= blnGabung);
+                        if (sudahWajibBayar && b <= blnBerjalan) {
+                            text = "0";
+                            style = "text-center p-3 border-b text-red-500 font-black bg-red-50";
+                        } else if (!sudahWajibBayar) {
+                            text = "N/A";
+                            style = "text-center p-3 border-b text-gray-200 italic";
+                        }
+                    }
+                    row += `<td class="${style}">${text}</td>`;
+                }
+
+                const blnMulaiWajib = (tahun == thnGabung) ? blnGabung : 1;
+                const jmlBulanWajib = Math.max(0, blnBerjalan - blnMulaiWajib + 1);
+                const totalHarus = jmlBulanWajib * nominalAturan;
+                const sisaTunggakan = Math.max(0, totalHarus - totalBayarTahunIni);
+
+                totalUangLunas += totalBayarTahunIni;
+                totalUangTunggakan += sisaTunggakan;
+
+                row += `<td class="p-3 text-right font-bold border-b bg-gray-50 text-gray-700">Rp${totalBayarTahunIni.toLocaleString('id-ID')}</td>
+                    <td class="p-3 text-right font-black border-b bg-red-100 text-red-700">Rp${sisaTunggakan.toLocaleString('id-ID')}</td>
+                    </tr>`;
+                tbody.insertAdjacentHTML('beforeend', row);
+            });
+
+            document.getElementById('statTotalAnggota').innerText = countAnggota;
+            document.getElementById('statTotalLunas').innerText = `Rp${totalUangLunas.toLocaleString('id-ID')}`;
+            document.getElementById('statTotalTunggakan').innerText = `Rp${totalUangTunggakan.toLocaleString('id-ID')}`;
+
+        } catch (e) {
+            console.error("Gagal render:", e);
+            tbody.innerHTML = '<tr><td colspan="15" class="p-5 text-red-500 text-center">Gagal proses data (Cek Console).</td></tr>';
+        }
+    }
+    async function loadDaftarPinjaman() {
+        const tableBody = document.getElementById('tabel_daftar_pinjaman');
+
+        if (!tableBody) {
+            console.warn("Elemen tabel_daftar_pinjaman tidak ditemukan.");
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/daftar-pinjaman`);
+            if (!response.ok) throw new Error('Gagal mengambil data dari server');
+
+            const data = await response.json();
+            tableBody.innerHTML = '';
+
+            if (data.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="6" class="text-center py-10 text-[10px] text-gray-400 italic font-bold uppercase tracking-widest">Belum ada data pinjaman aktif.</td></tr>';
+                return;
+            }
+
+            data.forEach(p => {
+                // Kita simpan nominal asli di data-nominal untuk perhitungan filter nanti
+                const row = `
+            <tr data-nominal="${p.nominal_pokok}" class="border-b border-gray-50 hover:bg-emerald-50/50 transition-all">
+                <td class="px-2 py-3 text-[10px] text-gray-400 font-medium">${new Date(p.tanggal_pinjam).toLocaleDateString('id-ID')}</td>
+                <td class="px-2 py-3">
+                    <div class="text-[10px] font-bold text-gray-700 uppercase leading-tight">${p.nama_lengkap}</div>
+                    <div class="text-[10px] text-slate-500 font-bold font-mono mt-0.5 border-t border-slate-100 pt-0.5">ID: ${p.no_anggota || p.id_anggota}</div>
+                </td>
+                <td class="px-2 py-3 text-[10px] font-black text-emerald-600">Rp ${parseFloat(p.nominal_pokok).toLocaleString('id-ID')}</td>
+                <td class="px-2 py-3 text-[10px] text-gray-500 font-bold text-center">${p.tenor} BLN</td>
+                <td class="px-2 py-3 text-[10px] text-rose-400 font-bold text-center">${p.bunga_persen}%</td>
+                <td class="px-2 py-3 text-center">
+                    <span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-tighter">${p.status}</span>
+                </td>
+            </tr>`;
+                tableBody.insertAdjacentHTML('beforeend', row);
+            });
+
+            // PENTING: Panggil fungsi filter setelah data masuk ke tabel
+            // Ini supaya totalan di bawah tabel langsung terhitung otomatis
+            filterPinjaman();
+
+        } catch (err) {
+            console.error("Gagal memuat tabel pinjaman:", err.message);
+        }
+    }
+    function bukaModalPinjaman() {
+        document.getElementById('modalPinjaman').classList.remove('hidden');
+        // 2. Panggil data anggota (Penting!)
+        loadPilihanAnggota();
+    }
+
+    function tutupModalPinjaman() {
+        document.getElementById('modalPinjaman').classList.add('hidden');
+
+    }
+    async function loadPilihanAnggota() {
+        try {
+            const response = await fetch(`${API_BASE_URL}/daftar-anggota`);
+            const data = await response.json();
+
+            const list = document.getElementById('list_anggota');
+            list.innerHTML = ''; // Kosongkan dulu
+
+            data.forEach(agt => {
+                const opt = document.createElement('option');
+                // Kita simpan Nama dan ID di value supaya gampang dicari
+                opt.value = `${agt.nama_lengkap} (${agt.no_anggota})`;
+                // Kita simpan ID di atribut khusus buat kita ambil nanti
+                opt.dataset.id = agt.id_anggota;
+                list.appendChild(opt);
+            });
+
+            console.log("Datalist searchable berhasil dimuat.");
+        } catch (error) {
+            console.error('Gagal memuat anggota:', error);
+        }
+    }
+    function pilihAnggotaDariList(val) {
+        const list = document.getElementById('list_anggota');
+        const options = list.childNodes;
+
+        // Reset hidden ID dulu kalau input dihapus
+        document.getElementById('pinjam_id_anggota').value = "";
+
+        for (let i = 0; i < options.length; i++) {
+            if (options[i].value === val) {
+                // Pas dapet yang cocok, simpan ID anggotanya
+                document.getElementById('pinjam_id_anggota').value = options[i].dataset.id;
+                console.log("Anggota dipilih ID:", options[i].dataset.id);
+                break;
+            }
+        }
+    }// 1. Fungsi Utama Hitung Angsuran
+    function hitungAngsuranOtomatis() {
+        const rawValue = document.getElementById('pinjam_pokok').value.replace(/\./g, '');
+        const pokok = parseFloat(rawValue) || 0;
+        const tenor = parseInt(document.getElementById('pinjam_tenor').value) || 0;
+        const bungaPersen = parseFloat(document.getElementById('pinjam_bunga').value) || 0;
+        const bodySimulasi = document.getElementById('body_simulasi');
+
+        bodySimulasi.innerHTML = ""; // Bersihkan tabel setiap kali ada angka berubah
+
+        if (pokok > 0 && tenor > 0) {
+            let sisaSaldopokok = pokok;
+            const cicilanPokokTetap = pokok / tenor;
+
+            for (let i = 1; i <= tenor; i++) {
+                // Hitung bunga dari sisa saldo (Bunga Efektif/Sliding)
+                const bungaBulanIni = sisaSaldopokok * (bungaPersen / 100);
+                const totalBayarBulanIni = cicilanPokokTetap + bungaBulanIni;
+
+                // Kurangi sisa saldo untuk hitungan bulan berikutnya
+                sisaSaldopokok -= cicilanPokokTetap;
+
+                // Masukkan baris ke dalam tabel
+                const row = `<tr>
+                <td class="p-2">${i}</td>
+                <td class="p-2">${Math.round(cicilanPokokTetap).toLocaleString('id-ID')}</td>
+                <td class="p-2 text-red-500">${Math.round(bungaBulanIni).toLocaleString('id-ID')}</td>
+                <td class="p-2 text-emerald-600 font-black">${Math.round(totalBayarBulanIni).toLocaleString('id-ID')}</td>
+                <td class="p-2 text-gray-400">${Math.abs(Math.round(sisaSaldopokok)).toLocaleString('id-ID')}</td>
+            </tr>`;
+
+                bodySimulasi.insertAdjacentHTML('beforeend', row);
+            }
+        }
+        // Update label angsuran pertama di atas tabel
+        const barisPertama = bodySimulasi.querySelector('tr td:nth-child(4)');
+        if (barisPertama) {
+            document.getElementById('label_angsuran_pertama').innerText = `Rp ${barisPertama.innerText}`;
+        } else {
+            document.getElementById('label_angsuran_pertama').innerText = "Rp 0";
+        }
+    }
+    // 2. Pasang 'Kuping' (Event Listener)
+    // Biar setiap lu ngetik, fungsinya langsung jalan tanpa perlu klik tombol
+    document.getElementById('pinjam_pokok').addEventListener('input', hitungAngsuranOtomatis);
+    document.getElementById('pinjam_tenor').addEventListener('input', hitungAngsuranOtomatis);
+    document.getElementById('pinjam_bunga').addEventListener('input', hitungAngsuranOtomatis);
+
+    function formatTampilanUang(input) {
+        // 1. Ambil angka saja, buang karakter lain
+        let value = input.value.replace(/[^0-9]/g, '');
+
+        if (value === "") {
+            input.value = "";
+            return;
+        }
+
+        // 2. Format ke Rupiah tanpa desimal (bulet)
+        let formatted = new Intl.NumberFormat('id-ID', {
+            style: 'decimal',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        }).format(value);
+
+        input.value = formatted;
+
+        // 3. Karena input berubah, kita panggil lagi fungsi hitung tabelnya
+        hitungAngsuranOtomatis();
+    }
+    // HANDLE SUBMIT FORM PINJAMAN
+    // ==========================================
+    // SEKARANG JADI FUNGSI MANDIRI
+    async function simpanPinjaman(e) {
+        e.preventDefault(); // Mencegah halaman refresh
+
+        // 1. Ambil ID Anggota dari hidden input
+        const id_anggota = document.getElementById('pinjam_id_anggota').value;
+
+        // 2. Ambil Nominal dan bersihkan titik
+        const nominalRaw = document.getElementById('pinjam_pokok').value;
+        const nominalBersih = nominalRaw.replace(/\./g, '');
+
+        // 3. Ambil data tenor dan bunga
+        const tenor = document.getElementById('pinjam_tenor').value;
+        const bunga = document.getElementById('pinjam_bunga').value;
+
+        // 4. Validasi Dasar
+        if (!id_anggota) {
+            alert("Pilih anggota dari list dulu, Gan!");
+            return;
+        }
+
+        if (!nominalBersih || nominalBersih <= 0) {
+            alert("Nominal pinjaman harus diisi!");
+            return;
+        }
+
+        // 5. Susun objek data
+        const dataPinjaman = {
+            id_anggota: id_anggota,
+            nominal_pokok: nominalBersih,
+            tenor: tenor,
+            bunga_persen: bunga
+        };
+
+        try {
+            // 6. Tembak ke API
+            const response = await fetch(`${API_BASE_URL}/api/pinjaman`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(dataPinjaman)
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                alert("🔥 Mantap! Pinjaman Berhasil Dicatat ke Database.");
+
+                // Reset Tampilan
+                tutupModalPinjaman();
+                document.getElementById('formPinjaman').reset();
+                document.getElementById('body_simulasi').innerHTML = "";
+                document.getElementById('label_angsuran_pertama').innerText = "Rp 0";
+
+                if (typeof loadDaftarPinjaman === "function") loadDaftarPinjaman();
+
+            } else {
+                alert("Gagal Simpan: " + result.message);
+            }
+        } catch (err) {
+            console.error("Error Fetch Pinjaman:", err);
+            alert("Gagal menyambung ke server!");
+        }
+    }
+    async function tampilkanJadwal(id_pinjaman) {
+        const response = await fetch(`/api/jadwal-angsuran/${id_pinjaman}`);
+        const data = await response.json();
+
+        let html = '';
+        data.forEach(item => {
+            const statusLabel = item.status === 'lunas'
+                ? '<span class="badge-lunas">Lunas</span>'
+                : '<span class="badge-pending">Belum Bayar</span>';
+
+            const tombolBayar = item.status === 'lunas'
+                ? '<span class="text-green-500 font-bold">✓</span>'
+                : `<button onclick="prosesBayar(${item.id_jadwal})" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-[10px] shadow-sm">Bayar</button>`;
+
+            html += `
+            <tr class="text-[11px] border-b border-gray-50 hover:bg-blue-50 transition-colors even:bg-gray-50/50">
+                <td class="py-3 px-2 text-center font-medium text-gray-600">${item.angsuran_ke}</td>
+                <td class="py-3 px-2 font-mono text-gray-500">${item.no_tagihan || item.no_angsuran}</td>
+                <td class="py-3 px-2">Rp ${formatRupiah(item.pokok_rp)}</td>
+                <td class="py-3 px-2 text-red-500">Rp ${formatRupiah(item.bunga_rp)}</td>
+                <td class="py-3 px-2 font-bold text-blue-700">Rp ${formatRupiah(item.total_rp)}</td>
+                <td class="py-3 px-2 text-center">${statusLabel}</td>
+                <td class="py-3 px-2 text-center">${tombolBayar}</td>
+            </tr>
+        `;
+        });
+        document.getElementById('tabelJadwalBody').innerHTML = html;
+    }
+
+    async function prosesBayar(id_jadwal) {
+        if (confirm('Konfirmasi pembayaran angsuran ini?')) {
+            const res = await fetch('/api/bayar-angsuran', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id_jadwal })
+            });
+            const hasil = await res.json();
+            alert(hasil.message);
+            location.reload(); // Refresh buat liat perubahan status
+        }
+    }
+    // Fungsi untuk memanggil modal dan isi tabelnya
+    // 2. Fungsi Buka Modal & Load Data
+    async function bukaModalAngsuran(id_pinjaman) {
+        if (!id_pinjaman) return alert("ID Pinjaman tidak terdeteksi!");
+
+        const modal = document.getElementById('modalAngsuran');
+        const tbody = document.getElementById('tabelJadwalBody');
+
+        // Munculkan Modal (Hanya pakai Tailwind)
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+
+        // Loading State
+        tbody.innerHTML = `
+        <tr>
+            <td colspan="7" class="text-center py-10">
+                <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                <p class="text-xs mt-2 text-gray-500 font-bold">Menarik Data Jadwal...</p>
+            </td>
+        </tr>`;
+
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/jadwal-angsuran/${id_pinjaman}`);
+
+            if (!res.ok) throw new Error(`Gagal konek ke server (Status: ${res.status})`);
+
+            const data = await res.json();
+            let html = '';
+
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center py-10 text-red-500 font-bold">Data jadwal kosong!</td></tr>';
+                return;
+            }
+
+            data.forEach(item => {
+                const isLunas = item.status === 'lunas';
+                const total = parseFloat(item.pokok_rp) + parseFloat(item.bunga_rp);
+
+                html += `
+                <tr class="border-b ${isLunas ? 'bg-green-50/50' : 'hover:bg-gray-50'} transition-colors text-[11px]">
+                    <td class="p-3 text-center font-bold text-gray-600">${item.angsuran_ke}</td>
+                    <td class="p-3 font-mono">${item.no_angsuran}</td>
+                    <td class="p-3">${formatRupiah(item.pokok_rp)}</td>
+                    <td class="p-3 text-red-400">${formatRupiah(item.bunga_rp)}</td>
+                    <td class="p-3 font-black text-indigo-700">${formatRupiah(total)}</td>
+                    <td class="p-3 text-center">
+                        <span class="px-2 py-1 rounded-full text-[9px] font-black ${isLunas ? 'bg-green-200 text-green-800' : 'bg-orange-200 text-orange-800'}">
+                            ${isLunas ? 'LUNAS' : 'BELUM BAYAR'}
+                        </span>
+                    </td>
+                    <td class="p-3 text-center">
+                        ${isLunas ?
+                        '<span class="text-green-500 text-lg font-bold">✓</span>' :
+                        `<button onclick="prosesBayar(${item.id_jadwal}, ${id_pinjaman})" 
+                                     class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1.5 rounded-xl font-bold text-[10px] shadow-sm transition-all active:scale-95">
+                                BAYAR
+                            </button>`
+                    }
+                    </td>
+                </tr>
+            `;
+            });
+            tbody.innerHTML = html;
+
+        } catch (err) {
+            console.error("Error Fetch:", err);
+            tbody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-red-600 font-bold italic">⚠️ Terjadi Kesalahan: ${err.message}</td></tr>`;
+        }
+    }
+
+    // 4. Fungsi Tutup Modal
+    function tutupModal() {
+        const modal = document.getElementById('modalAngsuran');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+
+    // Fungsi Eksekusi Pembayaran
+    async function prosesBayar(id_jadwal, id_pinjaman) {
+        if (!confirm("Konfirmasi Pembayaran Angsuran?\nData akan langsung masuk ke Kas/Transaksi.")) return;
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/bayar-angsuran`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id_jadwal })
+            });
+
+            const res = await response.json();
+
+            if (res.success) {
+                // Re-render tabel di modal tanpa refresh halaman
+                bukaModalAngsuran(id_pinjaman);
+                alert("🔥 Pembayaran Berhasil Dipecah ke Pokok & Bunga!");
+            } else {
+                alert("Gagal Bayar: " + res.message);
+            }
+        } catch (err) {
+            alert("Koneksi ke server terputus.");
+        }
+    }
+
+
+    // Helper Format Rupiah
+    function formatRupiah(angka) {
+        return new Intl.NumberFormat('id-ID', {
+            style: 'currency',
+            currency: 'IDR',
+            minimumFractionDigits: 0
+        }).format(angka);
+    }
+    async function lihatRiwayatAngsuran(id_anggota) {
+        // 1. Munculkan modal riwayat
+        const modal = document.getElementById('modalRiwayatPinjaman');
+        if (modal) modal.classList.remove('hidden');
+
+        const tbody = document.getElementById('bodyRiwayatPinjaman');
+        tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center">🔄 Memuat data riwayat...</td></tr>';
+
+        try {
+            // Gunakan API_BASE_URL biar seragam
+            const response = await fetch(`${API_BASE_URL}/api/riwayat-pinjaman/${id_anggota}`);
+
+            if (!response.ok) throw new Error('Gagal mengambil data dari server');
+
+            const data = await response.json();
+
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-gray-500">Belum ada riwayat pinjaman untuk anggota ini.</td></tr>';
+                return;
+            }
+
+            let html = '';
+            data.forEach(p => {
+                // 1. INVESTIGASI: Liat di Console browser (F12) apa yang sebenernya dikirim server
+                console.log("Isi objek p:", p);
+
+                // 2. LOGIKA TANGGAL: Coba ambil dari berbagai kemungkinan nama kolom
+                // Kita cek tgl_pinjam, kalau gak ada cek tanggal_pinjam, kalau gak ada baru pusing
+                let tglMentah = p.tgl_pinjam || p.tanggal_pinjam || null;
+                let tglTampil = '-';
+
+                if (tglMentah) {
+                    try {
+                        // Gunakan Intl.DateTimeFormat (Cara paling modern & stabil di browser)
+                        const dateObj = new Date(tglMentah);
+                        if (!isNaN(dateObj.getTime())) {
+                            tglTampil = new Intl.DateTimeFormat('id-ID').format(dateObj);
+                        } else {
+                            // Jika masih gagal, paksa manual dari string
+                            const s = tglMentah.toString().split('T')[0].split('-');
+                            tglTampil = `${s[2]}/${s[1]}/${s[0]}`;
+                        }
+                    } catch (e) {
+                        tglTampil = 'Format Error';
+                    }
+                }
+
+                const isLunas = p.status_pinjaman === 'lunas';
+                const statusClass = isLunas ? 'text-green-600 bg-green-50' : 'text-blue-600 bg-blue-50';
+
+                html += `
+                <tr class="border-b hover:bg-gray-50 text-[11px] transition-colors">
+                    <td class="p-3 text-center text-gray-600 font-bold">${p.tgl_pinjam_teks || '-'}
+                    <td class="p-3 font-bold text-gray-700">Rp ${formatRupiah(p.nominal_pokok)}</td>
+                    <td class="p-3 text-center">
+                        <span class="font-semibold text-indigo-600">${p.angsuran_masuk}</span> / ${p.tenor} Bln
+                    </td>
+                    <td class="p-3 font-bold text-red-600">Rp ${formatRupiah(p.sisa_utang)}</td>
+                    <td class="p-3 text-center">
+                        <span class="px-2 py-1 rounded-md font-bold ${statusClass}">
+                            ${p.status_pinjaman.toUpperCase()}
+                        </span>
+                    </td>
+                    <td class="p-3 text-center">
+                        <button onclick="bukaModalAngsuran(${p.id_pinjaman})" 
+                                class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg font-bold border border-slate-300 transition-all">
+                            🔎 DETAIL
+                        </button>
+                    </td>
+                </tr>
+            `;
+            });
+
+            tbody.innerHTML = html;
+
+        } catch (err) {
+            console.error("Riwayat Error:", err);
+            tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-red-500 font-bold">⚠️ Error: ${err.message}</td></tr>`;
+        }
+    }
+    function filterMatriks() {
+        // 1. Ambil input dan bersihkan spasi di depan/belakang
+        const inputNama = document.getElementById('searchKendali');
+        const inputStatus = document.getElementById('filterStatus');
+
+        if (!inputNama || !inputStatus) return;
+
+        const keyword = inputNama.value.toLowerCase().trim();
+        const statusFilter = inputStatus.value;
+
+        // 2. Target ID body tabel kendali
+        const tbody = document.getElementById('tabelKendaliBody');
+        if (!tbody) return;
+
+        const rows = tbody.getElementsByTagName('tr');
+
+        // --- [BARU] Siapkan variabel penampung angka untuk card ---
+        let totalAnggotaTampil = 0;
+        let totalNominalLunas = 0;
+        let totalNominalTunggakan = 0;
+
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const cells = row.getElementsByTagName('td');
+
+            // Pastikan ini bukan baris "Data Tidak Ditemukan"
+            if (cells.length > 1) {
+                // Ambil teks nama
+                const namaAnggota = (cells[0].textContent || cells[1].textContent).toLowerCase();
+
+                // Logika Pencarian
+                const cocokNama = namaAnggota.includes(keyword);
+
+                // Ambil nominal dari kolom (Total = -2, Tunggakan = -1)
+                const sisa = parseInt(cells[cells.length - 1].innerText.replace(/[^0-9]/g, '')) || 0;
+                const lunas = parseInt(cells[cells.length - 2].innerText.replace(/[^0-9]/g, '')) || 0;
+
+                // Logika Status
+                let cocokStatus = true;
+                if (statusFilter !== 'all') {
+                    if (statusFilter === 'lunas') cocokStatus = (sisa === 0);
+                    if (statusFilter === 'nunggak') cocokStatus = (sisa > 0);
+                }
+
+                // 3. Tampilkan baris jika SEMUA kriteria terpenuhi
+                if (cocokNama && cocokStatus) {
+                    row.style.display = "";
+
+                    // --- [BARU] Hitung statistik hanya untuk yang lolos filter ---
+                    totalAnggotaTampil++;
+                    totalNominalLunas += lunas;
+                    totalNominalTunggakan += sisa;
+                } else {
+                    row.style.display = "none";
+                }
+            }
+        }
+
+        // --- [BARU] Update angka di Card Statistik setelah looping selesai ---
+        const statAnggota = document.getElementById('statTotalAnggota');
+        const statLunas = document.getElementById('statTotalLunas');
+        const statTunggakan = document.getElementById('statTotalTunggakan');
+
+        if (statAnggota) statAnggota.innerText = totalAnggotaTampil;
+        if (statLunas) statLunas.innerText = `Rp${totalNominalLunas.toLocaleString('id-ID')}`;
+        if (statTunggakan) statTunggakan.innerText = `Rp${totalNominalTunggakan.toLocaleString('id-ID')}`;
+    }
+    async function fetchBukuKas() {
+        const area = document.getElementById('tabelKasUmumBody');
+        const footerArea = document.getElementById('tabelKasUmumFooter');
+        if (!area) return;
+
+        // Loading State
+        area.innerHTML = '<tr><td colspan="5" class="p-10 text-center animate-pulse text-red-500 font-bold uppercase text-[10px]">Menyinkronkan Pengeluaran...</td></tr>';
+        if (footerArea) footerArea.innerHTML = "";
+
+        try {
+            // Ganti URL ini dengan endpoint API pengeluaran lu yang benar
+            const res = await fetch(`${API_BASE_URL}/api/pengeluaran?v=${Date.now()}`);
+            const response = await res.json();
+
+            // Sesuaikan 'data' dengan struktur JSON dari backend lu (misal: response.pengeluaran)
+            const data = response.data || response.pengeluaran || [];
+
+            area.innerHTML = "";
+            let totalKeluar = 0;
+
+            if (data.length === 0) {
+                area.innerHTML = '<tr><td colspan="5" class="p-10 text-center text-gray-400 font-bold uppercase text-[10px]">Belum ada catatan pengeluaran.</td></tr>';
+                return;
+            }
+
+            data.forEach(item => {
+                const nominal = parseFloat(item.nominal) || 0;
+                totalKeluar += nominal;
+
+                area.insertAdjacentHTML('beforeend', `
+                <tr class="hover:bg-red-50 border-b transition-colors">
+                    <td class="p-4 text-[10px] text-gray-500 font-mono">${formatKeIndo(item.tanggal)}</td>
+                    <td class="p-4">
+                        <span class="bg-red-100 text-red-700 px-2 py-1 rounded text-[8px] font-black uppercase border border-red-200">
+                            ${item.kategori}
+                        </span>
+                    </td>
+                    <td class="p-4 text-[10px] text-gray-600">${item.keterangan || '-'}</td>
+                    <td class="p-4 text-[10px] text-gray-400 italic">${item.admin_input || 'system'}</td>
+                    <td class="p-4 text-right font-black text-red-600 text-[10px] italic">
+                        ${formatRupiah(nominal)}
+                    </td>
+                </tr>
+            `);
+            });
+
+            // Update Footer Sticky
+            if (footerArea) {
+                footerArea.innerHTML = `
+                <tr class="bg-red-50 font-black border-t-2 border-red-200 shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
+                    <td colspan="4" class="p-4 text-right text-[10px] text-red-700 uppercase italic">Total Pengeluaran:</td>
+                    <td class="p-4 text-right text-red-900 text-[11px] font-mono">${formatRupiah(totalKeluar)}</td>
+                </tr>
+            `;
+            }
+        } catch (e) {
+            console.error("Error BKU:", e);
+            area.innerHTML = '<tr><td colspan="5" class="p-10 text-center text-red-500 font-bold uppercase text-[10px]">Gagal Memuat Buku Kas Umum</td></tr>';
+        }
+    }
+
+    function filterBKU() {
+        const input = document.getElementById("searchBKU");
+        const keyword = input.value.toLowerCase();
+        const table = document.getElementById("tabelKasUmumBody");
+        const rows = table.getElementsByTagName("tr");
+
+        let totalFiltered = 0; // Variabel buat nampung total baru
+
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const tdKategori = row.getElementsByTagName('td')[1];
+            const tdKeterangan = row.getElementsByTagName('td')[2];
+            const tdNominal = row.getElementsByTagName('td')[4]; // Kolom nominal (indeks 4)
+
+            if (tdKategori || tdKeterangan) {
+                const teksKategori = tdKategori ? tdKategori.textContent.toLowerCase() : "";
+                const teksKeterangan = tdKeterangan ? tdKeterangan.textContent.toLowerCase() : "";
+
+                if (teksKategori.includes(keyword) || teksKeterangan.includes(keyword)) {
+                    row.style.display = "";
+
+                    // AMBIL NOMINAL DARI BARIS YANG MUNCUL
+                    // Kita bersihkan dulu karakter non-angka (seperti Rp, titik, koma)
+                    if (tdNominal) {
+                        const nominalText = tdNominal.textContent.replace(/[^0-9]/g, '');
+                        totalFiltered += parseFloat(nominalText) || 0;
+                    }
+                } else {
+                    row.style.display = "none";
+                }
+            }
+        }
+
+        // UPDATE FOOTER DENGAN TOTAL BARU
+        const footerArea = document.getElementById('tabelKasUmumFooter');
+        if (footerArea) {
+            footerArea.innerHTML = `
+            <tr class="bg-red-50 font-black border-t-2 border-red-200">
+                <td colspan="4" class="p-4 text-right text-[10px] text-red-700 uppercase italic">Total  :</td>
+                <td class="p-4 text-right text-red-900 text-[11px] font-mono">${formatRupiah(totalFiltered)}</td>
+            </tr>
+        `;
+        }
+    }
+    // Fungsi Buka Modal
+    function bukaModalPengeluaran() {
+        document.getElementById('modalPengeluaran').classList.remove('hidden');
+    }
+
+    // Fungsi Tutup Modal
+    function tutupModalPengeluaran() {
+        console.log("Menutup modal...");
+
+        // 1. Sembunyikan modalnya
+        const modal = document.getElementById('modalPengeluaran');
+        if (modal) {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        // 2. Reset form dengan cara AMAN (cek dulu ada atau gak)
+        const form = document.getElementById('formPengeluaran');
+        if (form) {
+            form.reset();
+        } else {
+            // Kalau gak ketemu, kosongin manual input yang sering dipake
+            if (document.getElementById('nom_pengeluaran')) document.getElementById('nom_pengeluaran').value = '';
+            if (document.getElementById('ket_pengeluaran')) document.getElementById('ket_pengeluaran').value = '';
+        }
+    }
+
+    function cekKategoriLain(val) {
+        const inputManual = document.getElementById('kat_manual');
+        if (val === 'LAIN-LAIN') {
+            inputManual.classList.remove('hidden');
+            inputManual.focus();
+        } else {
+            inputManual.classList.add('hidden');
+        }
+    }
+
+    // Modifikasi sedikit fungsi simpanPengeluaran lu:
+    async function simpanPengeluaran(e) {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        // Ambil tombol biar bisa dimatiin (mencegah data dobel)
+        const btnSimpan = document.querySelector('button[onclick*="simpanPengeluaran"]');
+
+        try {
+            const elNominal = document.getElementById('nom_pengeluaran');
+            const elKeterangan = document.getElementById('ket_pengeluaran');
+            const elSelKategori = document.getElementById('kat_pengeluaran');
+            const elManKategori = document.getElementById('kat_manual');
+
+            if (!elNominal || !elSelKategori) {
+                alert("Error: Elemen form tidak ditemukan!");
+                return;
+            }
+
+            const nominalRaw = elNominal.value;
+            const nominalBersih = nominalRaw.replace(/\./g, "");
+            const selKategori = elSelKategori.value;
+            const manKategori = elManKategori ? elManKategori.value.trim().toUpperCase() : "";
+            const kategoriFinal = (selKategori === 'LAIN-LAIN') ? manKategori : selKategori;
+
+            if (!kategoriFinal || !nominalBersih || nominalBersih === "0") {
+                alert("⚠️ Kategori dan Nominal wajib diisi!");
+                return;
+            }
+
+            // MATIKAN TOMBOL
+            if (btnSimpan) {
+                btnSimpan.disabled = true;
+                btnSimpan.innerText = "SABAR, LAGI NYIMPEN...";
+            }
+
+            const response = await fetch('/api/pengeluaran', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    kategori: kategoriFinal,
+                    keterangan: elKeterangan.value,
+                    nominal: parseInt(nominalBersih),
+                    admin_input: "Admin Utama"
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.status === 'success' || result.success === true) {
+                alert("✅ Mantap! Data berhasil disimpan.");
+
+                // --- HAPUS PERINTAH RESET OTOMATIS BIAR GAK ERROR ---
+                // Kita kosongin manual aja yang penting-penting
+                elNominal.value = '';
+                elKeterangan.value = '';
+
+                tutupModalPengeluaran();
+                if (typeof fetchBukuKas === "function") fetchBukuKas();
+            } else {
+                alert("❌ Gagal: " + (result.message || "Error server"));
+            }
+
+        } catch (err) {
+            console.error("💥 Detail Error:", err);
+            // Alert ini yang tadi muncul, sekarang gue bersihin biar gak ada 'reset' lagi
+            alert("❌ Waduh, ada masalah pas nyimpen data!");
+        } finally {
+            // NYALAKAN LAGI tombolnya
+            if (btnSimpan) {
+                btnSimpan.disabled = false;
+                btnSimpan.innerText = "SIMPAN DATA";
+            }
+        }
+    }
+    // KHUSUS INPUT NOMINAL DI BUKU KAS
+    function formatNominalBKU(input) {
+        // Ambil angka saja
+        let value = input.value.replace(/[^0-9]/g, '');
+
+        // Kasih titik ribuan
+        if (value) {
+            input.value = new Intl.NumberFormat('id-ID').format(value);
+        } else {
+            input.value = "";
+        }
+    }
+    // 1. Fungsi buat ngisi pilihan Bulan & Tahun secara otomatis
+    function renderDropdownFilters() {
+        const selectBulan = document.getElementById('filterBulanPinjaman');
+        const selectTahun = document.getElementById('filterTahunPinjaman');
+
+        // CEK DISINI: Kalau di console muncul "Gelas belum ada", berarti ID di HTML lu beda
+        if (!selectBulan || !selectTahun) {
+            console.error("Gelas belum ada! Cek ID filterBulanPinjaman atau filterTahunPinjaman di HTML lu.");
+            return;
+        }
+
+        const namaBulan = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+        let htmlBulan = '<option value="">SEMUA BULAN</option>';
+        namaBulan.forEach((bulan, i) => {
+            const val = (i + 1).toString().padStart(2, '0');
+            htmlBulan += `<option value="${val}">${bulan.toUpperCase()}</option>`;
+        });
+        selectBulan.innerHTML = htmlBulan;
+
+        const thnSekarang = new Date().getFullYear();
+        let htmlTahun = '<option value="">SEMUA TAHUN</option>';
+        for (let i = thnSekarang - 2; i <= thnSekarang + 1; i++) {
+            htmlTahun += `<option value="${i}" ${i === thnSekarang ? 'selected' : ''}>${i}</option>`;
+        }
+        selectTahun.innerHTML = htmlTahun;
+
+        console.log("Dropdown Filter Berhasil Diisi!"); // Kalau muncul ini, berarti aman
+    }
+    // 2. Fungsi Utama Filter (Search + Bulan + Tahun)
+    function filterPinjaman() {
+        const search = document.getElementById('searchPinjaman').value.toLowerCase();
+        const bln = document.getElementById('filterBulanPinjaman').value; // Nilainya "02"
+        const thn = document.getElementById('filterTahunPinjaman').value;
+        const rows = document.querySelectorAll('#tabel_daftar_pinjaman tr');
+        let totalCair = 0;
+
+        rows.forEach(row => {
+            // Cek apakah ini baris data (bukan baris "Belum ada data")
+            if (row.cells.length < 3) return;
+
+            const tglText = row.cells[0].innerText; // Misal: "7/2/2026"
+            const nama = row.cells[1].innerText.toLowerCase();
+            const nominal = parseFloat(row.getAttribute('data-nominal')) || 0;
+
+            // Pecah tanggal (D/M/YYYY)
+            const parts = tglText.split('/');
+            if (parts.length === 3) {
+                const d = parts[0];
+                const m = parts[1].padStart(2, '0'); // Paksa jadi 2 digit (misal "2" jadi "02")
+                const y = parts[2];
+
+                const matchNama = nama.includes(search);
+                const matchBln = bln === "" || m === bln;
+                const matchThn = thn === "" || y === thn;
+
+                if (matchNama && matchBln && matchThn) {
+                    row.style.display = "";
+                    totalCair += nominal;
+                } else {
+                    row.style.display = "none";
+                }
+            }
+        });
+
+        // Update totalan di bawah
+        const elTotal = document.getElementById('totalNominalPinjaman');
+        if (elTotal) {
+            elTotal.innerText = 'Rp ' + totalCair.toLocaleString('id-ID');
+        }
+    }
+
+    async function loadDataArusKas() {
+        const thn = document.getElementById('lapTahun').value;
+        const bln = document.getElementById('lapBulanArusKas').value;
+        const tbody = document.getElementById('tabelDetailArusKas');
+
+        tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center">Memuat rincian...</td></tr>';
+
+        try {
+            const res = await fetch(`/api/laporan-periode?bulan=${bln}&tahun=${thn}`);
+            const result = await res.json();
+
+            if (result.status === 'success') {
+                const d = result.data;
+
+                // Update Ringkasan Atas
+                document.getElementById('resSaldoAwal').innerText = formatRupiah(d.saldo_awal);
+                document.getElementById('resTotalMasuk').innerText = formatRupiah(d.pemasukan);
+                document.getElementById('resTotalKeluar').innerText = formatRupiah(d.pengeluaran);
+                document.getElementById('resSaldoAkhir').innerText = formatRupiah(d.saldo_akhir);
+
+                // Rincian Tabel dengan Saldo Berjalan
+                tbody.innerHTML = '';
+
+                // Baris pertama: Saldo Awal (Pindahan dari bulan lalu)
+                const trAwal = document.createElement('tr');
+                trAwal.className = "bg-gray-50/50 italic";
+                trAwal.innerHTML = `
+                <td class="p-3 border-b text-gray-400">-</td>
+                <td class="p-3 border-b font-bold text-gray-500 text-uppercase">SALDO AWAL PINDAHAN</td>
+                <td class="p-3 border-b text-right">-</td>
+                <td class="p-3 border-b text-right">-</td>
+                <td class="p-3 border-b text-right font-black text-blue-600">${formatRupiah(d.saldo_awal)}</td>
+            `;
+                tbody.appendChild(trAwal);
+
+                // Variabel penampung saldo yang terus berubah
+                let runningBalance = parseFloat(d.saldo_awal);
+
+                if (d.list_transaksi.length > 0) {
+                    d.list_transaksi.forEach(t => {
+                        // Logika deteksi otomatis: jika nominal negatif, masukkan ke kolom keluar
+                        let masuk = parseFloat(t.masuk || 0);
+                        let keluar = parseFloat(t.keluar || 0);
+
+                        // Tambahan: Jika t.masuk isinya negatif (dari penarikan), pindahkan ke keluar
+                        if (masuk < 0) {
+                            keluar = Math.abs(masuk);
+                            masuk = 0;
+                        }
+
+                        runningBalance = runningBalance + masuk - keluar;
+
+                        const tr = document.createElement('tr');
+                        tr.className = "hover:bg-gray-50";
+                        tr.innerHTML = `
+                            <td class="p-3 border-b text-gray-500">${new Date(t.tanggal).toLocaleDateString('id-ID')}</td>
+                            <td class="p-3 border-b font-medium uppercase">${t.ket}</td>
+                            <td class="p-3 border-b text-right text-emerald-600 font-bold">${masuk > 0 ? formatRupiah(masuk) : '-'}</td>
+                            <td class="p-3 border-b text-right text-rose-600 font-bold">${keluar > 0 ? formatRupiah(keluar) : '-'}</td>
+                            <td class="p-3 border-b text-right font-black text-gray-800 bg-blue-50/20">${formatRupiah(runningBalance)}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    }); // <-- Ini penutup forEach yang tadi mungkin ilang
+                } // <-- Ini penutup if
+            }
+        } catch (e) {
+            console.error("Gagal load detail arus kas:", e);
+        }
+    }
+
+    async function bukaModalTarikSaldo(idAnggota, saldoMaksimal) {
+        const { value: nominal } = await Swal.fire({
+            title: 'Tarik Saldo Simpanan',
+            html: `Masukkan nominal penarikan<br><small class="text-rose-500 font-bold">Maksimal: Rp${saldoMaksimal.toLocaleString('id-ID')}</small>`,
+            input: 'number',
+            inputAttributes: {
+                min: 1,
+                step: 1
+            },
+            inputPlaceholder: 'Contoh: 50000',
+            showCancelButton: true,
+            confirmButtonText: 'Tarik Sekarang',
+            confirmButtonColor: '#f59e0b', // Warna Amber
+            cancelButtonText: 'Batal',
+            preConfirm: (value) => {
+                if (!value || value <= 0) {
+                    Swal.showValidationMessage('Masukkan nominal yang valid!');
+                }
+                if (parseInt(value) > saldoMaksimal) {
+                    Swal.showValidationMessage('Saldo tidak mencukupi!');
+                }
+                return value;
+            }
+        });
+
+        if (nominal) {
+            // Jika nominal valid, kita eksekusi ke backend
+            simpanPenarikan(idAnggota, nominal);
+        }
+    }
+
+    async function simpanPenarikan(idAnggota, nominal) {
+        const skrg = new Date();
+        try {
+            const res = await fetch(`${API_BASE_URL}/tambah-iuran-bulk`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id_anggota: idAnggota,
+                    jenis_iuran: 'tarik_simpanan',
+                    jumlah_per_bulan: parseInt(nominal) * -1, // Tetap minus
+                    bulan_mulai: skrg.getMonth() + 1,        // Ambil bulan sekarang
+                    tahun_mulai: skrg.getFullYear(),         // Ambil tahun sekarang
+                    total_bulan: 1                           // Satu kali penarikan saja
+                })
+            });
+
+            const result = await res.json();
+
+            if (res.ok && result.success) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil!',
+                    text: `Saldo ditarik Rp${parseInt(nominal).toLocaleString('id-ID')}`,
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+                loadAnggota();
+                closeModal('modalDetail');
+            } else {
+                throw new Error(result.message || 'Gagal');
+            }
+        } catch (e) {
+            console.error("Detail Error Backend:", e);
+            Swal.fire('Error', 'Gagal memproses penarikan. Cek koneksi backend.', 'error');
+        }
+    }
+    async function bukaKonfigurasi() {
+        // 1. Ambil data konfigurasi terbaru
+        const res = await fetch('/api/config');
+        const cfg = await res.json();
+
+        // Fungsi pembantu untuk hapus titik sebelum kirim ke database
+        const bersih = (val) => val.replace(/\./g, '');
+
+        const { value: formValues } = await Swal.fire({
+            title: 'PENGATURAN SISTEM',
+            width: '500px',
+            html: `
+        <div class="text-left space-y-4 p-2 max-h-[70vh] overflow-y-auto">
+            <div class="border-b pb-3">
+                <h3 class="text-[10px] font-black text-blue-600 mb-2 uppercase">Identitas Koperasi</h3>
+                <div class="space-y-3">
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-400 uppercase">Logo Koperasi</label>
+                        <input type="file" id="swal-file" class="swal2-file w-full" accept="image/*">
+                        ${cfg.logo_url ? `<img src="${cfg.logo_url}" class="h-10 mt-2 rounded border">` : ''}
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-400 uppercase">Nama Koperasi</label>
+                        <input id="swal-nama" class="swal2-input w-full m-0" value="${cfg.nama_koperasi || ''}">
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <h3 class="text-[10px] font-black text-emerald-600 mb-2 uppercase">Tarif & Saldo (Format Otomatis)</h3>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-400 uppercase">Iuran Wajib (Rp)</label>
+                        <input id="swal-iuran" class="swal2-input w-full m-0" 
+                            value="${new Intl.NumberFormat('id-ID').format(cfg.iuran_wajib || 0)}" 
+                            oninput="formatTampilanUang(this)">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-400 uppercase">Pendaftaran (Rp)</label>
+                        <input id="swal-daftar" class="swal2-input w-full m-0" 
+                            value="${new Intl.NumberFormat('id-ID').format(cfg.biaya_pendaftaran || 0)}" 
+                            oninput="formatTampilanUang(this)">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-400 uppercase">Admin Pinjaman (Rp)</label>
+                        <input id="swal-admin" class="swal2-input w-full m-0" 
+                            value="${new Intl.NumberFormat('id-ID').format(cfg.biaya_admin_pinjaman || 0)}" 
+                            oninput="formatTampilanUang(this)">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-400 uppercase">Saldo Awal (Rp)</label>
+                        <input id="swal-saldo" class="swal2-input w-full m-0" 
+                            value="${new Intl.NumberFormat('id-ID').format(cfg.saldo_awal || 0)}" 
+                            oninput="formatTampilanUang(this)">
+                    </div>
+                </div>
+            </div>
+        </div>
+        `,
+            confirmButtonText: 'SIMPAN SEMUA',
+            showCancelButton: true,
+            preConfirm: () => {
+                const formData = new FormData();
+                const fileInput = document.getElementById('swal-file').files[0];
+
+                // Masukkan file jika ada yang diupload
+                if (fileInput) {
+                    formData.append('logo_file', fileInput);
+                }
+
+                // Masukkan data teks & angka (dibersihkan dari titik dulu)
+                formData.append('nama_koperasi', document.getElementById('swal-nama').value);
+                formData.append('iuran_wajib', bersih(document.getElementById('swal-iuran').value));
+                formData.append('biaya_pendaftaran', bersih(document.getElementById('swal-daftar').value));
+                formData.append('biaya_admin_pinjaman', bersih(document.getElementById('swal-admin').value));
+                formData.append('saldo_awal', bersih(document.getElementById('swal-saldo').value));
+
+                return formData;
+            }
+        });
+
+        if (formValues) {
+            // Gunakan endpoint khusus upload yang kita buat di index.js
+            const response = await fetch('/api/config/update-full', {
+                method: 'POST',
+                body: formValues // FormData tidak butuh Header Content-Type manual
+            });
+
+            if (response.ok) {
+                Swal.fire('Berhasil!', 'Semua konfigurasi dan logo telah diperbarui.', 'success');
+                location.reload();
+            } else {
+                Swal.fire('Gagal', 'Terjadi kesalahan saat menyimpan data.', 'error');
+            }
+        }
+    }
+
+    async function applyHeaderConfig() {
+        try {
+            const res = await fetch('/api/config');
+            const cfg = await res.json();
+
+            // 1. Update Nama Koperasi di Header
+            if (cfg.nama_koperasi) {
+                document.getElementById('header-nama').innerText = cfg.nama_koperasi;
+                document.title = cfg.nama_koperasi; // Ganti judul tab browser
+            }
+
+            // 2. Update Logo
+            const logoImg = document.getElementById('header-logo');
+            if (cfg.logo_url) {
+                // Kita pakai /uploads/ karena sudah kita set static di index.js
+                logoImg.src = cfg.logo_url;
+                logoImg.classList.remove('hidden');
+            } else {
+                logoImg.classList.add('hidden');
+            }
+
+        } catch (err) {
+            console.error("Gagal load header config:", err);
+        }
+    }
+
+    async function logout() {
+        try {
+            const response = await fetch('/api/logout', { method: 'POST' });
+            const hasil = await response.json();
+
+            if (hasil.success) {
+                window.location.href = '/login.html'; // Mentalin ke halaman login
+            }
+        } catch (err) {
+            console.error('Error logout:', err);
+            alert('Gagal logout, coba lagi.');
+        }
+    }
+
+    async function tampilkanInfoAdmin() {
+    try {
+        const response = await fetch('/api/auth/me');
+        
+        // Kalau 401 (Unauthorized), langsung ganti teksnya
+        if (response.status === 401) {
+            document.getElementById('admin_info').innerText = "Belum Login";
+            return;
+        }
+
+        const admin = await response.json();
+
+        if (admin && admin.no_anggota) {
+            // Kita pakai template literal biar rapi
+            document.getElementById('admin_info').innerText = `${admin.no_anggota} | ${admin.nama_lengkap}`;
+        }
+    } catch (err) {
+        console.error("Gagal ambil data admin:", err);
+        document.getElementById('admin_info').innerText = "Error Load";
+    }
+}
+
+// Langsung jalankan
+tampilkanInfoAdmin();
+
+</script>
+</body>
+
+</html>
