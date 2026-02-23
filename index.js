@@ -912,7 +912,7 @@ function cekLogin(req, res, next) {
 }
 
 // F. Terakhir: Static Folder (Hanya untuk aset seperti CSS/JS/Gambar)
-app.use(express.static(__dirname));
+app.use(express.static('public'));
 
 app.listen(3000, () => {
     console.log('Server running on http://localhost:3000');
