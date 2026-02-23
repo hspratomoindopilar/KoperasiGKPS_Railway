@@ -6,17 +6,28 @@
   "display": "standalone",
   "background_color": "#2c73d2",
   "theme_color": "#3b82f6",
-  "icons": [
+ "icons": [
     {
       "src": "uploads/logo-1771497164442.png",
-      "sizes": "192x192",
+      "sizes": "192x192 512x512 1851x1779",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "uploads/logo-1771497164442.png",
+      "sizes": "1851x1779",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Halaman Login Koperasi"
     },
     {
       "src": "uploads/logo-1771497164442.png",
-      "sizes": "512x512",
-      "type": "image/png"
+      "sizes": "1851x1779",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Halaman Login Koperasi"
     }
   ]
 }
