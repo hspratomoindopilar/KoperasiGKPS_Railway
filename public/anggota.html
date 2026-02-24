@@ -332,7 +332,8 @@
                 ]);
 
                 const me = await resMe.json();
-                const dataTrans = await resLaporan.json();
+                const responseJson = await resLaporan.json(); // Ambil paket lengkapnya dulu
+                const dataTrans = responseJson.transaksi;      // Ambil isi tabel transaksinya aja (Array)
 
                 const thnGabung = new Date(me.tgl_bergabung).getFullYear();
                 const blnGabung = new Date(me.tgl_bergabung).getMonth() + 1;
