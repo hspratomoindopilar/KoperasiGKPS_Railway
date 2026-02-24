@@ -39,53 +39,6 @@
             </div>
         </div>
     </div>
-    <div id="kontenLaporanTerpilih" class="hidden fixed inset-0 z-50 bg-gray-100 overflow-y-auto p-4 pb-24">
-        <div class="max-w-lg mx-auto flex flex-col gap-4">
-
-            <div class="flex flex-col gap-4 bg-white p-5 rounded-2xl shadow-xl border-2 border-amber-100">
-                <div class="flex justify-between items-center">
-                    <h2 class="font-black text-amber-700 uppercase text-xs tracking-tighter">📖 Buku Kendali Iuran Wajib
-                    </h2>
-                    <button onclick="backToSubMenuLaporan()"
-                        class="text-[10px] font-black bg-gray-100 text-gray-500 px-3 py-1 rounded-lg hover:bg-red-50 hover:text-red-600 transition-all">TUTUP</button>
-                </div>
-
-                <div class="flex gap-2 items-center">
-                    <select id="lapTahun"
-                        class="p-3 rounded-xl border-2 border-gray-100 text-xs font-bold flex-1 bg-gray-50 outline-none focus:border-amber-400 transition-all"></select>
-                    <button onclick="renderBukuKendaliSaya()"
-                        class="bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-xl text-xs font-black shadow-md active:scale-95 transition-all italic">PROSES</button>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-3">
-                <div class="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 shadow-sm">
-                    <p class="text-[9px] uppercase text-emerald-600 font-bold mb-1">Total Lunas</p>
-                    <h3 id="statTotalLunas" class="text-sm font-black text-emerald-900">Rp 0</h3>
-                </div>
-                <div class="p-4 bg-red-50 rounded-2xl border border-red-100 shadow-sm">
-                    <p class="text-[9px] uppercase text-red-600 font-bold mb-1">Tunggakan</p>
-                    <h3 id="statTotalTunggakan" class="text-sm font-black text-red-900 tracking-tighter">Rp 0</h3>
-                </div>
-            </div>
-
-            <div class="w-full bg-white rounded-3xl shadow-lg border-2 border-gray-100 overflow-hidden">
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left text-[11px] border-separate border-spacing-0">
-                        <thead class="bg-gray-50 text-gray-400 uppercase font-black">
-                            <tr>
-                                <th class="p-4 border-b">Bulan</th>
-                                <th class="p-4 text-center border-b">Status</th>
-                                <th class="p-4 text-right border-b bg-gray-50/30">Nominal</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tabelKendaliBody" class="divide-y divide-gray-100">
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <script>
         const API_BASE_URL = ''; // Tambahkan ini agar variabelnya terdefinisi
@@ -220,12 +173,9 @@
                         <button class="bg-red-600 text-white py-2 rounded-xl font-bold text-[10px] shadow-md">🗑️ HAPUS</button>
                         <button class="bg-emerald-600 text-white py-2 rounded-xl font-bold text-[10px] shadow-md">➕ IURAN</button>
                     </div>
-                    
+
                     <button onclick="lihatRiwayat(idAnggota)"class="w-full bg-blue-700 text-white py-3 rounded-xl font-black text-sm shadow-lg mt-2">
                         📜 LIHAT SEMUA RIWAYAT
-                    </button>
-                    <button onclick="bukaBukuKendali()" class="w-full bg-amber-500 hover:bg-amber-600 text-white py-4 rounded-2xl shadow-lg mt-3 text-[11px] font-black uppercase italic tracking-widest transition-transform active:scale-95 border-b-4 border-amber-700">
-                            📖 Cek Buku Kendali Iuran Wajib
                     </button>
                 </div>
             `;
@@ -299,78 +249,6 @@
                 console.error("Detail Error Riwayat:", e);
                 area.innerHTML = '<p class="text-red-500 text-xs text-center">Gagal load data. Cek koneksi API.</p>';
             }
-        }
-
-        function generateTahunFilter() {
-            const sel = document.getElementById('lapTahun');
-            if (!sel) return;
-            const now = new Date().getFullYear();
-            sel.innerHTML = '';
-            // Review tahun 2013 sampai tahun depan
-            for (let i = now + 1; i >= 2013; i--) {
-                sel.insertAdjacentHTML('beforeend', `<option value="${i}" ${i === now ? 'selected' : ''}>TAHUN ${i}</option>`);
-            }
-        }
-
-        async function renderBukuKendaliSaya() {
-            const thn = document.getElementById('lapTahun').value;
-            const tbody = document.getElementById('tabelKendaliBody');
-            const now = new Date();
-
-            tbody.innerHTML = '<tr><td colspan="3" class="p-10 text-center animate-pulse text-amber-500 font-bold">Sinkronisasi...</td></tr>';
-
-            try {
-                const [resMe, resLaporan] = await Promise.all([
-                    fetch('/api/auth/me'),
-                    fetch(`/api/laporan-transaksi?tahun=${thn}&v=${Date.now()}`)
-                ]);
-
-                const me = await resMe.json();
-                const dataLap = await resLaporan.json();
-                const config = dataLap.config || {};
-                const dataTrans = dataLap.transaksi || [];
-                const nominalWajib = config.iuran_wajib || 20000;
-
-                const blnBerjalan = (thn == now.getFullYear()) ? now.getMonth() + 1 : (thn < now.getFullYear() ? 12 : 0);
-                const tglGabung = new Date(me.tgl_bergabung);
-
-                tbody.innerHTML = '';
-
-                ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"].forEach((nama, i) => {
-                    const b = i + 1;
-                    const ada = dataTrans.find(t => t.id_anggota === me.id_anggota && t.bulan_iuran === b && t.jenis_iuran === 'wajib');
-
-                    let status = "N/A", style = "text-gray-200 italic", bayar = "Rp 0";
-                    const sudahWajib = (thn > tglGabung.getFullYear()) || (thn == tglGabung.getFullYear() && b >= (tglGabung.getMonth() + 1));
-
-                    if (ada) {
-                        status = "LUNAS";
-                        style = "text-emerald-600 font-black bg-emerald-50/50";
-                        bayar = `Rp${parseFloat(ada.jumlah_bayar).toLocaleString('id-ID')}`;
-                    } else if (sudahWajib && b <= blnBerjalan) {
-                        status = "NUNGGAK";
-                        style = "text-red-500 font-black bg-red-50";
-                    }
-
-                    tbody.insertAdjacentHTML('beforeend', `
-                <tr class="hover:bg-gray-50">
-                    <td class="p-4 border-b font-bold">${nama}</td>
-                    <td class="p-4 border-b text-center text-[9px] ${style}">${status}</td>
-                    <td class="p-4 border-b text-right font-black">${bayar}</td>
-                </tr>
-            `);
-                });
-            } catch (e) { tbody.innerHTML = '<tr><td colspan="3" class="p-5 text-center text-red-500">Gagal Sinkron.</td></tr>'; }
-        }
-
-        function bukaBukuKendali() {
-            document.getElementById('kontenLaporanTerpilih').classList.remove('hidden');
-            generateTahunFilter();
-            renderBukuKendaliSaya();
-        }
-
-        function backToSubMenuLaporan() {
-            document.getElementById('kontenLaporanTerpilih').classList.add('hidden');
         }
 
 
