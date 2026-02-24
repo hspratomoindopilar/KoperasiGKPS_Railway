@@ -39,17 +39,22 @@
             </div>
         </div>
     </div>
-    <div id="modalBukuKendali" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-[9999] flex items-center justify-center p-4">
-        <div class="bg-white w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300 flex flex-col max-h-[90vh]">
-            
+    <div id="modalBukuKendali"
+        class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-[9999] flex items-center justify-center p-4">
+        <div
+            class="bg-white w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300 flex flex-col max-h-[90vh]">
+
             <div class="p-6 border-b flex justify-between items-center bg-gray-50 flex-shrink-0">
                 <h3 class="font-black text-amber-800 flex items-center gap-2">📖 BUKU KENDALI IURAN WAJIB</h3>
-                <button onclick="tutupBukuKendali()" class="bg-gray-200 hover:bg-gray-300 text-gray-600 px-4 py-1 rounded-full text-xs font-bold uppercase tracking-wider transition-colors">Tutup</button>
+                <button onclick="tutupBukuKendali()"
+                    class="bg-gray-200 hover:bg-gray-300 text-gray-600 px-4 py-1 rounded-full text-xs font-bold uppercase tracking-wider transition-colors">Tutup</button>
             </div>
 
             <div class="p-6 bg-white border-b flex gap-3 flex-shrink-0">
-                <select id="lapTahun" class="flex-1 bg-gray-100 border-none rounded-xl px-4 py-3 font-bold text-gray-700 focus:ring-2 focus:ring-amber-500"></select>
-                <button onclick="renderBukuKendaliSaya()" class="bg-amber-500 hover:bg-amber-600 text-white px-8 py-3 rounded-xl font-black transition-all shadow-md active:scale-95">PROSES</button>
+                <select id="lapTahun"
+                    class="flex-1 bg-gray-100 border-none rounded-xl px-4 py-3 font-bold text-gray-700 focus:ring-2 focus:ring-amber-500"></select>
+                <button onclick="renderBukuKendaliSaya()"
+                    class="bg-amber-500 hover:bg-amber-600 text-white px-8 py-3 rounded-xl font-black transition-all shadow-md active:scale-95">PROSES</button>
             </div>
 
             <div class="grid grid-cols-2 gap-4 p-6 bg-gray-50 flex-shrink-0">
@@ -317,7 +322,8 @@
         }
 
         async function renderBukuKendaliSaya() {
-            const thn = document.getElementById('lapTahun').value;
+            const thnInput = document.getElementById('lapTahun').value;
+            const thn = parseInt(thnInput); // Pastikan jadi ANGKA
             const tbody = document.getElementById('tabelKendaliBody');
             const now = new Date();
             const blnBerjalan = now.getMonth() + 1;
@@ -332,11 +338,12 @@
                 ]);
 
                 const me = await resMe.json();
-                const responseJson = await resLaporan.json(); // Ambil paket lengkapnya dulu
-                const dataTrans = responseJson.transaksi;      // Ambil isi tabel transaksinya aja (Array)
+                const responseJson = await resLaporan.json();
+                const dataTrans = responseJson.transaksi;
 
-                const thnGabung = new Date(me.tgl_bergabung).getFullYear();
-                const blnGabung = new Date(me.tgl_bergabung).getMonth() + 1;
+                const tglGabung = new Date(me.tgl_bergabung);
+                const thnGabung = tglGabung.getFullYear();
+                const blnGabung = tglGabung.getMonth() + 1;
 
                 let html = '';
                 let totalLunas = 0;
@@ -347,7 +354,7 @@
                 namaBulan.forEach((nama, i) => {
                     const b = i + 1;
 
-                    // FILTER KETAT: Harus ID saya, Bulan ini, dan Jenis Wajib
+                    // Cari data lunas milik user ini
                     const ada = dataTrans.find(t =>
                         String(t.id_anggota) === String(me.id_anggota) &&
                         parseInt(t.bulan_iuran) === b &&
@@ -355,17 +362,22 @@
                     );
 
                     let status = '-', gaya = 'text-gray-300', nominal = 'Rp 0';
-                    const sudahWajib = (thn > thnGabung) || (thn == thnGabung && b >= blnGabung);
+
+                    // Logika Kewajiban: Tahun ini sudah lewat tahun gabung, atau tahun yang sama tapi bulan sudah lewat
+                    const sudahWajib = (thn > thnGabung) || (thn === thnGabung && b >= blnGabung);
+                    // Logika Waktu: Tahun ini sudah lewat tahun sekarang, atau tahun yang sama tapi bulan sudah lewat/saat ini
+                    const sudahLewatWaktu = (thn < thnBerjalan) || (thn === thnBerjalan && b <= blnBerjalan);
 
                     if (ada) {
                         status = 'LUNAS';
                         gaya = 'text-emerald-600 font-black bg-emerald-50 rounded-lg px-2 py-1';
                         nominal = `Rp ${parseFloat(ada.jumlah_bayar).toLocaleString('id-ID')}`;
                         totalLunas += parseFloat(ada.jumlah_bayar);
-                    } else if (sudahWajib && (thn < thnBerjalan || (thn == thnBerjalan && b <= blnBerjalan))) {
+                    } else if (sudahWajib && sudahLewatWaktu) {
                         status = 'NUNGGAK';
                         gaya = 'text-red-500 font-black bg-red-50 rounded-lg px-2 py-1';
-                        const tagihan = (thn < 2022 || (thn == 2022 && b <= 6)) ? 10000 : 20000;
+                        // Penyesuaian tarif historis
+                        const tagihan = (thn < 2022 || (thn === 2022 && b <= 6)) ? 10000 : 20000;
                         nominal = `Rp ${tagihan.toLocaleString('id-ID')}`;
                         totalTunggakan += tagihan;
                     }
@@ -378,16 +390,23 @@
                 </tr>`;
                 });
 
+                // Tambahan "Bantalan" agar baris Desember tidak menempel ke bawah
+                html += `
+            <tr class="h-24">
+                <td colspan="3" class="text-center text-[10px] text-gray-400 font-bold tracking-widest pt-10">
+                    --- AKHIR LAPORAN ${thn} ---
+                </td>
+            </tr>`;
+
                 tbody.innerHTML = html;
                 document.getElementById('statLunas').textContent = `Rp ${totalLunas.toLocaleString('id-ID')}`;
                 document.getElementById('statTunggakan').textContent = `Rp ${totalTunggakan.toLocaleString('id-ID')}`;
 
             } catch (e) {
+                console.error(e);
                 tbody.innerHTML = '<tr><td colspan="3" class="p-10 text-center text-red-500">Gagal memuat data</td></tr>';
             }
         }
-
-
         async function logout() {
             try {
                 const response = await fetch('/api/logout', {
