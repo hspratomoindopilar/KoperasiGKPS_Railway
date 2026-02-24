@@ -39,22 +39,20 @@
             </div>
         </div>
     </div>
-    <div id="modalBukuKendali"
-        class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-[9999] flex items-center justify-center p-4">
-        <div
-            class="bg-white w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300">
-            <div class="p-6 border-b flex justify-between items-center bg-gray-50">
+    <div id="modalBukuKendali" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-[9999] flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300 flex flex-col max-h-[90vh]">
+            
+            <div class="p-6 border-b flex justify-between items-center bg-gray-50 flex-shrink-0">
                 <h3 class="font-black text-amber-800 flex items-center gap-2">📖 BUKU KENDALI IURAN WAJIB</h3>
-                <button onclick="tutupBukuKendali()"
-                    class="bg-gray-200 hover:bg-gray-300 text-gray-600 px-4 py-1 rounded-full text-xs font-bold uppercase tracking-wider transition-colors">Tutup</button>
+                <button onclick="tutupBukuKendali()" class="bg-gray-200 hover:bg-gray-300 text-gray-600 px-4 py-1 rounded-full text-xs font-bold uppercase tracking-wider transition-colors">Tutup</button>
             </div>
-            <div class="p-6 bg-white border-b flex gap-3">
-                <select id="lapTahun"
-                    class="flex-1 bg-gray-100 border-none rounded-xl px-4 py-3 font-bold text-gray-700 focus:ring-2 focus:ring-amber-500"></select>
-                <button onclick="renderBukuKendaliSaya()"
-                    class="bg-amber-500 hover:bg-amber-600 text-white px-8 py-3 rounded-xl font-black transition-all shadow-md active:scale-95">PROSES</button>
+
+            <div class="p-6 bg-white border-b flex gap-3 flex-shrink-0">
+                <select id="lapTahun" class="flex-1 bg-gray-100 border-none rounded-xl px-4 py-3 font-bold text-gray-700 focus:ring-2 focus:ring-amber-500"></select>
+                <button onclick="renderBukuKendaliSaya()" class="bg-amber-500 hover:bg-amber-600 text-white px-8 py-3 rounded-xl font-black transition-all shadow-md active:scale-95">PROSES</button>
             </div>
-            <div class="grid grid-cols-2 gap-4 p-6 bg-gray-50">
+
+            <div class="grid grid-cols-2 gap-4 p-6 bg-gray-50 flex-shrink-0">
                 <div class="bg-emerald-50 p-4 rounded-2xl border border-emerald-100">
                     <p class="text-[10px] uppercase font-bold text-emerald-600 mb-1">Total Lunas</p>
                     <p id="statLunas" class="text-xl font-black text-emerald-700">Rp 0</p>
@@ -64,7 +62,8 @@
                     <p id="statTunggakan" class="text-xl font-black text-red-700">Rp 0</p>
                 </div>
             </div>
-            <div class="max-h-[60vh] overflow-y-auto p-0 border-t">
+
+            <div class="flex-1 overflow-y-auto p-0 border-t pb-20">
                 <table class="w-full text-left border-collapse">
                     <thead class="bg-gray-100 sticky top-0 z-10">
                         <tr class="text-[10px] uppercase text-gray-500 font-bold">
@@ -76,6 +75,7 @@
                     <tbody id="tabelKendaliBody" class="divide-y divide-gray-100"></tbody>
                 </table>
             </div>
+
         </div>
     </div>
 
