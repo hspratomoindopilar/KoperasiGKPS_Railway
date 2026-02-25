@@ -127,8 +127,18 @@
 
         // Copy fungsi ini biar standar kayak index.html tapi khusus ambil angka
         const getAngkaTanggal = (dateStr) => {
+            if (!dateStr) return { thn: 2013, bln: 1 };
+
+            // Pecah manual YYYY-MM-DD biar gak kegeser timezone
+            const parts = dateStr.split('T')[0].split('-');
+            if (parts.length === 3) {
+                return {
+                    thn: parseInt(parts[0]),
+                    bln: parseInt(parts[1])
+                };
+            }
+
             const d = new Date(dateStr);
-            // Jika tanggal ga valid, kasih default tahun berdiri koperasi
             if (isNaN(d.getTime())) return { thn: 2013, bln: 1 };
             return {
                 thn: d.getFullYear(),
@@ -380,9 +390,20 @@
                 const responseJson = await resLaporan.json();
                 const dataTrans = responseJson.transaksi;
 
+                // --- PERBAIKAN DI SINI ---
+                // Pastikan dapet angka murni, bukan string atau undefined
                 const infoGabung = getAngkaTanggal(me.tgl_bergabung);
-                const thnGabung = infoGabung.thn;
-                const blnGabung = infoGabung.bln;
+                const thnGabung = parseInt(infoGabung.thn);
+                const blnGabung = parseInt(infoGabung.bln);
+
+                // LOG 1: Cek data dasar
+                console.log("--- DEBUG DATA USER ---");
+                console.log("Tgl Bergabung Raw:", me.tgl_bergabung);
+                console.log("Tahun Gabung:", thnGabung);
+                console.log("Filter Tahun:", thn);
+
+                // Tambahkan log di sini (dalam blok try) biar ketahuan angkanya muncul gak
+                console.log(`User: ${me.nama_lengkap} | Gabung: ${blnGabung}-${thnGabung} | Filter: ${thn}`);
 
                 let html = '';
                 let totalLunas = 0;
@@ -413,6 +434,17 @@
 
                     // Logika Waktu Kalender: Tahun/Bulan tersebut sudah terlewati di dunia nyata
                     const sudahLewatWaktu = (thn < thnBerjalan) || (thn === thnBerjalan && b <= blnBerjalan);
+
+                    // --- LOG DEBUG DI SINI ---
+                    if (b === 1) {
+                        console.log("--- DEBUG CHECK BULAN JANUARI ---");
+                        console.log("Tahun Filter (thn):", thn, typeof thn);
+                        console.log("Tahun Gabung (thnGabung):", thnGabung, typeof thnGabung);
+                        console.log("Bulan Gabung (blnGabung):", blnGabung, typeof blnGabung);
+                        console.log("Hasil belumGabung:", belumGabung);
+                        console.log("Hasil sudahWajib:", sudahWajib);
+                        console.log("---------------------------------");
+                    }
 
                     if (ada) {
                         // KONDISI LUNAS
@@ -720,7 +752,7 @@
                 </div>
             </div>
         `,
-                timer: 5000,
+                timer: 10000,
                 timerProgressBar: true,
                 showConfirmButton: false,
                 allowOutsideClick: false,
