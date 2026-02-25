@@ -837,7 +837,8 @@ app.post('/api/login-anggota', async (req, res) => {
                 id_anggota: user.id_anggota,
                 no_anggota: no_anggota, // Ambil dari input login
                 nama_lengkap: user.nama_lengkap,
-                role: user.role
+                role: user.role,
+                tgl_bergabung: user.tgl_bergabung
             };
 
             res.json({
