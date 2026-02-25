@@ -42,9 +42,23 @@
                 </div>
             </div>
 
-            <div class="mt-6 border-t pt-4">
-                <p class="text-[9px] text-center text-gray-400 font-bold uppercase tracking-widest">
-                    Developed by PutragungCyber_Dev - 2026</p>
+            <div class="mt-8 border-t border-gray-100 pt-6 pb-4">
+                <div class="flex flex-col items-center gap-2">
+                    <p class="text-[9px] text-center text-gray-400 font-bold uppercase tracking-[0.3em]">
+                        Developed by
+                        <span class="text-blue-500/90 transition-all duration-700 hover:text-cyan-400"
+                            style="text-shadow: 0 0 10px rgba(59, 130, 246, 0.4);">
+                            PutragungCyber_Dev
+                        </span>
+                        - 2026
+                    </p>
+
+                    <a href="https://wa.me/6281977385582" target="_blank"
+                        class="flex items-center gap-1.5 text-[8px] font-black bg-white text-gray-500 px-3 py-1 rounded-full border border-gray-200 shadow-sm hover:border-emerald-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all duration-300">
+                        <i class="fab fa-whatsapp text-[10px]"></i>
+                        <span>HUBUNGI DEVELOPER: 0819-7738-5582</span>
+                    </a>
+                </div>
             </div>
         </div>
     </div>
@@ -379,7 +393,9 @@
                 namaBulan.forEach((nama, i) => {
                     const b = i + 1;
 
-                    // Cari data lunas milik user ini
+                    // --- START PERBAIKAN LOGIKA ---
+
+                    // 1. Cari data lunas milik user ini
                     const ada = dataTrans.find(t =>
                         String(t.id_anggota) === String(me.id_anggota) &&
                         parseInt(t.bulan_iuran) === b &&
@@ -388,25 +404,41 @@
 
                     let status = '-', gaya = 'text-gray-300', nominal = 'Rp 0';
 
-                    // Logika Kewajiban: Tahun ini sudah lewat tahun gabung, atau tahun yang sama tapi bulan sudah lewat
+                    // 2. Logika Status Keanggotaan (PENTING)
+                    // Belum Gabung: Jika tahun yang dilihat < tahun gabung, ATAU tahun sama tapi bulan belum sampai
+                    const belumGabung = (thn < thnGabung) || (thn === thnGabung && b < blnGabung);
+
+                    // Sudah Wajib: Jika tahun yang dilihat > tahun gabung, ATAU tahun sama dan sudah masuk bulan gabung
                     const sudahWajib = (thn > thnGabung) || (thn === thnGabung && b >= blnGabung);
-                    // Logika Waktu: Tahun ini sudah lewat tahun sekarang, atau tahun yang sama tapi bulan sudah lewat/saat ini
+
+                    // Logika Waktu Kalender: Tahun/Bulan tersebut sudah terlewati di dunia nyata
                     const sudahLewatWaktu = (thn < thnBerjalan) || (thn === thnBerjalan && b <= blnBerjalan);
 
                     if (ada) {
+                        // KONDISI LUNAS
                         status = 'LUNAS';
                         gaya = 'text-emerald-600 font-black bg-emerald-50 rounded-lg px-2 py-1';
                         nominal = `Rp ${parseFloat(ada.jumlah_bayar).toLocaleString('id-ID')}`;
                         totalLunas += parseFloat(ada.jumlah_bayar);
-                    } else if (sudahWajib && sudahLewatWaktu) {
+                    }
+                    else if (belumGabung) {
+                        // KONDISI SEBELUM BERGABUNG (Data tidak ada dan memang belum jadi anggota)
+                        status = 'N/A';
+                        gaya = 'text-gray-400 italic font-medium';
+                        nominal = 'Rp 0';
+                    }
+                    else if (sudahWajib && sudahLewatWaktu) {
+                        // KONDISI NUNGGAK (Sudah wajib bayar tapi data tidak ditemukan)
                         status = 'NUNGGAK';
                         gaya = 'text-red-500 font-black bg-red-50 rounded-lg px-2 py-1';
+
                         // Penyesuaian tarif historis
                         const tagihan = (thn < 2022 || (thn === 2022 && b <= 6)) ? 10000 : 20000;
                         nominal = `Rp ${tagihan.toLocaleString('id-ID')}`;
                         totalTunggakan += tagihan;
                     }
 
+                    // --- END PERBAIKAN LOGIKA ---
                     html += `
                 <tr class="hover:bg-gray-50 transition-colors">
                     <td class="px-6 py-4 font-bold text-gray-600 text-sm">${nama}</td>
@@ -666,6 +698,67 @@
             }
         }
 
+        //iklan dulu sebelum logout
+        async function handleLogout() {
+            let timerInterval;
+
+            Swal.fire({
+                title: '<span class="text-[10px] text-gray-400 font-bold tracking-[0.3em] uppercase">Special Info</span>',
+                html: `
+            <div class="flex flex-col items-center gap-4 p-2">
+                <a href="https://wa.me/6281977385582" target="_blank" class="block w-full group overflow-hidden rounded-2xl shadow-lg border border-gray-100">
+                    <img src="img/DesainPopUP_fix.png" 
+                         alt="PutragungCyber_Dev" 
+                         class="w-full h-auto object-cover transform transition-transform duration-700 group-hover:scale-110">
+                </a>
+                
+                <div class="text-center">
+                    <p class="text-[11px] text-gray-500 font-medium tracking-tight">
+                        Sesi berakhir. Anda akan diarahkan ke login dalam <br>
+                        <span class="text-blue-600 font-black text-xl timer-count">5</span> detik
+                    </p>
+                </div>
+            </div>
+        `,
+                timer: 5000,
+                timerProgressBar: true,
+                showConfirmButton: false,
+                allowOutsideClick: false,
+                width: '420px',
+                background: '#ffffff',
+                didOpen: () => {
+                    const b = Swal.getHtmlContainer().querySelector('.timer-count');
+                    timerInterval = setInterval(() => {
+                        const timeLeft = Swal.getTimerLeft();
+                        if (timeLeft) {
+                            b.textContent = Math.ceil(timeLeft / 1000);
+                        }
+                    }, 100);
+                },
+                willClose: () => {
+                    clearInterval(timerInterval);
+                }
+            }).then(async () => {
+                // PROSES LOGOUT ASLI KE ENDPOINT /api/logout
+                try {
+                    const response = await fetch('/api/logout', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+
+                    const result = await response.json();
+                    if (result.success) {
+                        window.location.href = 'login.html';
+                    } else {
+                        // Jika gagal destroy session, tetap paksa ke login
+                        window.location.href = 'login.html';
+                    }
+                } catch (err) {
+                    console.error("Logout error:", err);
+                    window.location.href = 'login.html';
+                }
+            });
+        }
     </script>
 </body>
 
