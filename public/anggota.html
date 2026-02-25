@@ -102,6 +102,17 @@
             return tipe === 'jam' ? `${tanggal} ${jam}` : tanggal;
         }
 
+        // Copy fungsi ini biar standar kayak index.html tapi khusus ambil angka
+        const getAngkaTanggal = (dateStr) => {
+            const d = new Date(dateStr);
+            // Jika tanggal ga valid, kasih default tahun berdiri koperasi
+            if (isNaN(d.getTime())) return { thn: 2013, bln: 1 };
+            return {
+                thn: d.getFullYear(),
+                bln: d.getMonth() + 1
+            };
+        };
+
         async function muatProfilMandiri() {
             try {
                 const response = await fetch('/api/cek-sesi-anggota');
@@ -341,9 +352,9 @@
                 const responseJson = await resLaporan.json();
                 const dataTrans = responseJson.transaksi;
 
-                const tglGabung = new Date(me.tgl_bergabung);
-                const thnGabung = tglGabung.getFullYear();
-                const blnGabung = tglGabung.getMonth() + 1;
+                const infoGabung = getAngkaTanggal(me.tgl_bergabung);
+                const thnGabung = infoGabung.thn;
+                const blnGabung = infoGabung.bln;
 
                 let html = '';
                 let totalLunas = 0;
@@ -406,7 +417,11 @@
                 console.error(e);
                 tbody.innerHTML = '<tr><td colspan="3" class="p-10 text-center text-red-500">Gagal memuat data</td></tr>';
             }
+            // Debugging (opsional, cek di console F12)
+            console.log(`Anggota gabung: Bulan ${blnGabung} Tahun ${thnGabung}`);
         }
+
+
         async function logout() {
             try {
                 const response = await fetch('/api/logout', {
