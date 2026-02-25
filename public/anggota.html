@@ -34,8 +34,8 @@
             </div>
 
             <div class="mt-6 border-t pt-4">
-                <p class="text-[9px] text-center text-gray-400 font-bold uppercase tracking-widest">Aplikasi Koperasi
-                    v2.0 - 2026</p>
+                <p class="text-[9px] text-center text-gray-400 font-bold uppercase tracking-widest">
+                    Developed by PutragungCyber_Dev - 2026</p>
             </div>
         </div>
     </div>
@@ -197,9 +197,10 @@
                             <p class="text-[10px] font-bold text-emerald-600 opacity-70">Wajib + Sukarela</p>
                         </div>
                         <div class="flex items-stretch">
-                            <button class="w-full bg-amber-500 text-white rounded-2xl text-[10px] font-black shadow-sm flex flex-col justify-center items-center gap-1">
-                                <span class="text-lg">💸</span>
-                                <span>TARIK SALDO</span>
+                            <button disabled title="Next Feature_putragungcyber_dev"
+                                class="w-full bg-gray-300 text-gray-500 rounded-2xl text-[10px] font-black shadow-none flex flex-col justify-center items-center gap-1 cursor-not-allowed opacity-80">
+                                <span class="text-lg grayscale">💸</span>
+                                <span>WITHDRAWAL</span>
                             </button>
                         </div>
                     </div>
@@ -224,9 +225,10 @@
                     </div>
 
                     <div class="grid grid-cols-3 gap-2 pt-4 border-t">
-                        <button class="bg-amber-500 text-white py-2 rounded-xl font-bold text-[10px] shadow-md">✏️ EDIT</button>
-                        <button class="bg-red-600 text-white py-2 rounded-xl font-bold text-[10px] shadow-md">🗑️ HAPUS</button>
-                        <button class="bg-emerald-600 text-white py-2 rounded-xl font-bold text-[10px] shadow-md">➕ IURAN</button>
+                        <button class="bg-amber-500 text-white py-2 rounded-xl font-bold text-[10px] shadow-md">✏️EDIT PROFILE</button>
+                        <button disabled title="next feature-putragungcyber_dev" class="bg-gray-300 text-gray-500 py-2 px-4 rounded-xl font-bold text-[10px] cursor-not-allowed">
+                            ➕ IURAN (Next Feature)
+                        </button>
                     </div>
 
                     <button onclick="lihatRiwayat(idAnggota)"class="w-full bg-blue-700 text-white py-3 rounded-xl font-black text-sm shadow-lg mt-2">
@@ -438,6 +440,146 @@
                 console.error("Gagal logout:", err);
                 // Tetap paksa pindah jika error
                 window.location.href = '/login.html';
+            }
+        }
+
+        // Global variable untuk simpan data user pas lagi edit
+        let currentUserData = null;
+
+        // Fungsi Edit Profile
+        async function enableEditMode() {
+            try {
+                // Ambil data terbaru dulu
+                const res = await fetch('/api/auth/me');
+                const d = await res.json();
+                currentUserData = d; // Simpan ke global buat referensi saat save
+
+                // Sembunyikan view, munculkan edit
+                document.getElementById('viewMode').classList.add('hidden');
+                const editArea = document.getElementById('editMode');
+                editArea.classList.remove('hidden');
+
+                // Split tempat & tgl lahir (Format: "Jakarta, 1990-01-01")
+                let part = (d.ttl || "").split(", ");
+                let tempat = part[0] || "";
+                let tglLahirMentah = part[1] || "";
+
+                // Helper format tanggal buat input (biasanya input date butuh YYYY-MM-DD)
+                const toInputDate = (str) => {
+                    if (!str) return "";
+                    const dt = new Date(str);
+                    return isNaN(dt) ? "" : dt.toISOString().split('T')[0];
+                };
+
+                editArea.innerHTML = `
+        <h4 class="text-amber-600 font-black mb-4 border-b pb-2 uppercase tracking-tighter text-left">Update Profil Saya</h4>
+        <div class="space-y-3 max-h-[60vh] overflow-y-auto pr-2 custom-scroll">
+            <input type="hidden" id="edit_no_anggota" value="${d.no_anggota}">
+            
+            <div class="text-left">
+                <label class="text-[10px] font-bold text-gray-400 uppercase">Nama Lengkap</label>
+                <input type="text" id="edit_nama" class="w-full border p-3 rounded-xl bg-gray-50 focus:ring-2 focus:ring-amber-500 outline-none" value="${d.nama_lengkap || ''}">
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 text-left">
+                <div>
+                    <label class="text-[10px] font-bold text-gray-400 uppercase">NIK</label>
+                    <input type="text" id="edit_nik" class="w-full border p-3 rounded-xl bg-gray-50" value="${d.nik || ''}">
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-gray-400 uppercase">No HP (WhatsApp)</label>
+                    <input type="text" id="edit_no_hp" class="w-full border p-3 rounded-xl bg-gray-50" value="${d.no_hp || ''}">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 text-left">
+                <div>
+                    <label class="text-[10px] font-bold text-gray-400 uppercase">Jenis Kelamin</label>
+                    <select id="edit_jk" class="w-full border p-3 rounded-xl bg-gray-50">
+                        <option value="Laki-laki" ${d.jenis_kelamin === 'Laki-laki' ? 'selected' : ''}>Laki-laki</option>
+                        <option value="Perempuan" ${d.jenis_kelamin === 'Perempuan' ? 'selected' : ''}>Perempuan</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-gray-400 uppercase">Pekerjaan</label>
+                    <input type="text" id="edit_pekerjaan" class="w-full border p-3 rounded-xl bg-gray-50" value="${d.pekerjaan || ''}">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 text-left">
+                <div>
+                    <label class="text-[10px] font-bold text-gray-400 uppercase">Tempat Lahir</label>
+                    <input type="text" id="edit_tempat" class="w-full border p-3 rounded-xl bg-gray-50" value="${tempat}">
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-gray-400 uppercase">Tgl Lahir</label>
+                    <input type="date" id="edit_tgl_lahir" class="w-full border p-3 rounded-xl bg-gray-50" value="${toInputDate(tglLahirMentah)}">
+                </div>
+            </div>
+
+            <div class="text-left">
+                <label class="text-[10px] font-bold text-gray-400 uppercase">Alamat Lengkap</label>
+                <textarea id="edit_alamat" class="w-full border p-3 rounded-xl bg-gray-50" rows="2">${d.alamat || ''}</textarea>
+            </div>
+            
+            <div class="flex gap-2 pt-4 border-t sticky bottom-0 bg-white">
+                <button onclick="saveEdit()" class="flex-1 bg-amber-500 text-white py-4 rounded-xl font-black shadow-lg hover:bg-amber-600 transition-all">💾 SIMPAN PERUBAHAN</button>
+                <button onclick="location.reload()" class="px-6 bg-gray-100 text-gray-500 py-4 rounded-xl font-bold">BATAL</button>
+            </div>
+        </div>
+        `;
+            } catch (err) {
+                console.error(err);
+                Swal.fire('Error', 'Gagal memuat data profil', 'error');
+            }
+        }
+
+        // Fungsi save EditProfile
+        async function saveEdit() {
+            Swal.fire({
+                title: 'Menyimpan Perubahan...',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+
+            const payload = {
+                no_anggota: document.getElementById('edit_no_anggota').value,
+                nama_lengkap: document.getElementById('edit_nama').value,
+                nik: document.getElementById('edit_nik').value,
+                no_hp: document.getElementById('edit_no_hp').value,
+                jenis_kelamin: document.getElementById('edit_jk').value,
+                pekerjaan: document.getElementById('edit_pekerjaan').value,
+                alamat: document.getElementById('edit_alamat').value,
+                // Tgl bergabung ambil dari data awal (tidak diubah)
+                tgl_bergabung: currentUserData.tgl_bergabung,
+                edit_tempat: document.getElementById('edit_tempat').value,
+                edit_tgl_lahir: document.getElementById('edit_tgl_lahir').value
+            };
+
+            try {
+                const response = await fetch('/api/update-anggota', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    await Swal.fire({
+                        icon: 'success',
+                        title: 'Profil Diperbarui!',
+                        text: 'Data Anda telah berhasil diupdate.',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                    location.reload(); // Refresh biar data baru muncul di dashboard
+                } else {
+                    throw new Error(result.message || "Gagal update data");
+                }
+            } catch (error) {
+                console.error("Error saat save:", error);
+                Swal.fire('Gagal!', error.message, 'error');
             }
         }
     </script>
