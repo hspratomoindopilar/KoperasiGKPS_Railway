@@ -841,7 +841,7 @@ app.post('/api/login-anggota', async (req, res) => {
                 success: true,
                 data: req.session.user // Pakai data dari session saja biar sama
             });
-            
+
         } else {
             res.status(401).json({ success: false, message: "Nomor Anggota atau PIN salah!" });
         }
@@ -910,6 +910,41 @@ function cekLogin(req, res, next) {
         res.redirect('/login'); // Mentalin ke login kalau nggak ada
     }
 }
+
+app.post('/api/update-password', async (req, res) => {
+    // Ambil id_anggota dari express-session
+    // Pastikan pas login lu sudah set: req.session.id_anggota = user.id_anggota;
+    const userId = req.session.userId;
+    const { newPassword } = req.body;
+
+    // Proteksi: Jika tidak ada session, tendang
+    if (!userId) {
+        return res.status(401).json({
+            success: false,
+            message: 'Sesi login tidak ditemukan. Silakan login kembali.'
+        });
+    }
+
+    try {
+        // Update kolom pin_anggota berdasarkan id_anggota yang sedang login
+        const query = 'UPDATE anggota SET pin_anggota = $1 WHERE id_anggota = $2';
+        const result = await pool.query(query, [newPassword, userId]);
+
+        if (result.rowCount > 0) {
+            res.json({ success: true, message: 'Password/PIN berhasil diperbarui!' });
+        } else {
+            res.status(404).json({ success: false, message: 'Data anggota tidak ditemukan.' });
+        }
+        if (result.rowCount > 0) {
+            // Opsional: Hapus session biar user login ulang dengan PIN baru
+            req.session.destroy();
+            res.json({ success: true, message: 'PIN berhasil diubah, silakan login kembali.' });
+        }
+    } catch (err) {
+        console.error('Error update password:', err);
+        res.status(500).json({ success: false, message: 'Terjadi kesalahan pada server.' });
+    }
+});
 
 // F. Terakhir: Static Folder (Hanya untuk aset seperti CSS/JS/Gambar)
 app.use(express.static('public'));

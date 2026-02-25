@@ -8,6 +8,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -22,10 +23,17 @@
 
             <div class="flex justify-between items-center mb-6">
                 <h3 class="text-xl font-black text-blue-600 flex items-center gap-2 uppercase tracking-tighter">
-                    👤 Profil Mandiri
+                    👤 Profil Saya
                 </h3>
-                <button onclick="logout()"
-                    class="text-[10px] font-bold bg-red-100 text-red-600 px-3 py-1 rounded-full">LOGOUT</button>
+                <div class="flex gap-2">
+                    <button onclick="changePassword()"
+                        class="text-[10px] font-bold bg-amber-100 text-amber-600 px-3 py-1 rounded-full border border-amber-200 hover:bg-amber-200 transition-all">
+                        🔑 GANTI PASS
+                    </button>
+                    <button onclick="logout()"
+                        class="text-[10px] font-bold bg-red-100 text-red-600 px-3 py-1 rounded-full">LOGOUT
+                    </button>
+                </div>
             </div>
 
             <div id="detailContent" class="space-y-4 text-left">
@@ -198,7 +206,7 @@
                             <p class="text-[10px] font-bold text-emerald-600 opacity-70">Wajib + Sukarela</p>
                         </div>
                         <div class="flex items-stretch">
-                            <button disabled title="Next Feature_putragungcyber_dev"
+                            <button disabled title="Next Feature-PutragungCyber_Dev"
                                 class="w-full bg-gray-300 text-gray-500 rounded-2xl text-[10px] font-black shadow-none flex flex-col justify-center items-center gap-1 cursor-not-allowed opacity-80">
                                 <span class="text-lg grayscale">💸</span>
                                 <span>WITHDRAWAL</span>
@@ -228,7 +236,7 @@
                     <div id="profilView" class="space-y-4"> 
                         <div class="grid grid-cols-3 gap-2 pt-4 border-t">
                             <button onclick="enableEditMode()" class="bg-amber-500 text-white py-2 rounded-xl font-bold text-[10px] shadow-md">✏️ EDIT PROFILE</button>
-                            <button disabled class="bg-gray-300 text-gray-500 py-2 rounded-xl font-bold text-[10px] cursor-not-allowed">➕ IURAN</button>
+                            <button disabled title="next feature-PutragungCyber_Dev" class="bg-gray-300 text-gray-500 py-2 rounded-xl font-bold text-[10px] cursor-not-allowed">➕ IURAN</button>
                         </div>
                     </div>
 
@@ -592,6 +600,72 @@
                 Swal.fire('Gagal!', error.message, 'error');
             }
         }
+
+        async function changePassword() {
+            const { value: formValues } = await Swal.fire({
+                title: '<span class="text-lg font-black uppercase">Ganti PIN Akses</span>',
+                html: `
+            <div class="flex flex-col gap-3 p-2">
+                <input id="new-pass" class="swal2-input !m-0 !w-full rounded-xl text-sm" placeholder="PIN Baru" type="password">
+                <input id="confirm-pass" class="swal2-input !m-0 !w-full rounded-xl text-sm" placeholder="Konfirmasi PIN Baru" type="password">
+            </div>
+        `,
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonText: 'Update PIN',
+                confirmButtonColor: '#f59e0b', // Warna Amber-500
+                cancelButtonText: 'Batal',
+                preConfirm: () => {
+                    const p1 = document.getElementById('new-pass').value;
+                    const p2 = document.getElementById('confirm-pass').value;
+                    if (!p1 || !p2) return Swal.showValidationMessage('Isi kedua kolom!');
+                    if (p1.length < 6) return Swal.showValidationMessage('PIN minimal 6 karakter!');
+                    if (p1 !== p2) return Swal.showValidationMessage('PIN tidak cocok!');
+                    return p1;
+                }
+            });
+
+            if (formValues) {
+                // 1. Tampilkan Loading
+                Swal.fire({
+                    title: 'Sedang Memproses...',
+                    allowOutsideClick: false,
+                    didOpen: () => Swal.showLoading()
+                });
+
+                try {
+                    // 2. Kirim data ke Backend
+                    const res = await fetch('/api/update-password', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ newPassword: formValues })
+                    });
+
+                    const data = await res.json();
+
+                    if (res.ok) {
+                        // 3. Jika Berhasil: Munculkan pesan sukses lalu redirect
+                        Swal.fire({
+                            title: 'Berhasil!',
+                            text: 'PIN sudah diganti. Silakan login kembali dengan PIN baru.',
+                            icon: 'success',
+                            confirmButtonText: 'Ke Halaman Login',
+                            confirmButtonColor: '#3b82f6'
+                        }).then(() => {
+                            // Paksa pindah ke halaman login
+                            window.location.href = 'login.html';
+                        });
+                    } else {
+                        // 4. Jika Gagal dari Server (misal sesi habis)
+                        throw new Error(data.message || 'Gagal update PIN');
+                    }
+                } catch (err) {
+                    // 5. Jika Error Koneksi/Sistem
+                    Swal.fire('Gagal!', err.message, 'error');
+                }
+            }
+        }
+
     </script>
 </body>
 

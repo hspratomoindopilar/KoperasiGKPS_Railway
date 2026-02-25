@@ -110,11 +110,19 @@
             Admin: <span id="admin_info" class="font-bold text-gray-800">Memuat...</span>
         </div>
 
-        <button onclick="logout()"
-            class="bg-red-500 hover:bg-red-600 text-white px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors shadow-md">
-            Keluar Sistem <i class="fas fa-sign-out-alt ml-2 text-sm"></i>
-        </button>
+        <div class="flex gap-2">
+            <button onclick="changePassword()"
+                class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors shadow-md">
+                <i class="fas fa-key mr-2"></i> Ganti PIN
+            </button>
+
+            <button onclick="logout()"
+                class="bg-red-500 hover:bg-red-600 text-white px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors shadow-md">
+                Keluar Sistem <i class="fas fa-sign-out-alt ml-2 text-sm"></i>
+            </button>
+        </div>
     </div>
+
     <div class="text-center py-4 flex flex-col items-center">
 
         <img id="header-logo" src="" class="h-16 md:h-24 mb-4 hidden object-contain drop-shadow-md">
@@ -3658,29 +3666,94 @@
     }
 
     async function tampilkanInfoAdmin() {
-    try {
-        const response = await fetch('/api/auth/me');
-        
-        // Kalau 401 (Unauthorized), langsung ganti teksnya
-        if (response.status === 401) {
-            document.getElementById('admin_info').innerText = "Belum Login";
-            return;
-        }
+        try {
+            const response = await fetch('/api/auth/me');
 
-        const admin = await response.json();
+            // Kalau 401 (Unauthorized), langsung ganti teksnya
+            if (response.status === 401) {
+                document.getElementById('admin_info').innerText = "Belum Login";
+                return;
+            }
 
-        if (admin && admin.no_anggota) {
-            // Kita pakai template literal biar rapi
-            document.getElementById('admin_info').innerText = `${admin.no_anggota} | ${admin.nama_lengkap}`;
+            const admin = await response.json();
+
+            if (admin && admin.no_anggota) {
+                // Kita pakai template literal biar rapi
+                document.getElementById('admin_info').innerText = `${admin.no_anggota} | ${admin.nama_lengkap}`;
+            }
+        } catch (err) {
+            console.error("Gagal ambil data admin:", err);
+            document.getElementById('admin_info').innerText = "Error Load";
         }
-    } catch (err) {
-        console.error("Gagal ambil data admin:", err);
-        document.getElementById('admin_info').innerText = "Error Load";
     }
-}
 
-// Langsung jalankan
-tampilkanInfoAdmin();
+    // Langsung jalankan
+    tampilkanInfoAdmin();
+
+    async function changePassword() {
+        const { value: formValues } = await Swal.fire({
+            title: '<span class="text-lg font-black uppercase">Ganti PIN Akses</span>',
+            html: `
+            <div class="flex flex-col gap-3 p-2">
+                <input id="new-pass" class="swal2-input !m-0 !w-full rounded-xl text-sm" placeholder="PIN Baru" type="password">
+                <input id="confirm-pass" class="swal2-input !m-0 !w-full rounded-xl text-sm" placeholder="Konfirmasi PIN Baru" type="password">
+            </div>
+        `,
+            focusConfirm: false,
+            showCancelButton: true,
+            confirmButtonText: 'Update PIN',
+            confirmButtonColor: '#f59e0b', // Warna Amber-500
+            cancelButtonText: 'Batal',
+            preConfirm: () => {
+                const p1 = document.getElementById('new-pass').value;
+                const p2 = document.getElementById('confirm-pass').value;
+                if (!p1 || !p2) return Swal.showValidationMessage('Isi kedua kolom!');
+                if (p1.length < 6) return Swal.showValidationMessage('PIN minimal 6 karakter!');
+                if (p1 !== p2) return Swal.showValidationMessage('PIN tidak cocok!');
+                return p1;
+            }
+        });
+
+        if (formValues) {
+            // 1. Tampilkan Loading
+            Swal.fire({
+                title: 'Sedang Memproses...',
+                allowOutsideClick: false,
+                didOpen: () => Swal.showLoading()
+            });
+
+            try {
+                // 2. Kirim data ke Backend
+                const res = await fetch('/api/update-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ newPassword: formValues })
+                });
+
+                const data = await res.json();
+
+                if (res.ok) {
+                    // 3. Jika Berhasil: Munculkan pesan sukses lalu redirect
+                    Swal.fire({
+                        title: 'Berhasil!',
+                        text: 'PIN sudah diganti. Silakan login kembali dengan PIN baru.',
+                        icon: 'success',
+                        confirmButtonText: 'Ke Halaman Login',
+                        confirmButtonColor: '#3b82f6'
+                    }).then(() => {
+                        // Paksa pindah ke halaman login
+                        window.location.href = 'login.html';
+                    });
+                } else {
+                    // 4. Jika Gagal dari Server (misal sesi habis)
+                    throw new Error(data.message || 'Gagal update PIN');
+                }
+            } catch (err) {
+                // 5. Jika Error Koneksi/Sistem
+                Swal.fire('Gagal!', err.message, 'error');
+            }
+        }
+    }
 
 </script>
 </body>
