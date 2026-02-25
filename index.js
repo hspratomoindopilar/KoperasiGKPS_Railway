@@ -10,7 +10,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.use('/uploads', express.static('public/uploads'));
+// Biar bisa akses /uploads/file.jpg
+app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
+// BIAR BISA AKSES /img/DesainPopUP_fix.png (INI YANG TADI KURANG)
+app.use(express.static(path.join(__dirname, 'public')));
 
 app.use(session({
     secret: 'koperasi-secret-key',
