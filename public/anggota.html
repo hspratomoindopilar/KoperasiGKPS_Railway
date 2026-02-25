@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Profil Anggota - Koperasi</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
         body {
@@ -224,12 +225,15 @@
                         <div id="areaRiwayat" class="hidden mt-4"></div>
                     </div>
 
-                    <div class="grid grid-cols-3 gap-2 pt-4 border-t">
-                        <button onclick="enableEditMode()" class="bg-amber-500 text-white py-2 rounded-xl font-bold text-[10px] shadow-md">✏️ EDIT PROFILE</button>
-                        <button disabled title="next feature-putragungcyber_dev" class="bg-gray-300 text-gray-500 py-2 px-4 rounded-xl font-bold text-[10px] cursor-not-allowed">
-                            ➕ IURAN (Next Feature)
-                        </button>
+                    <div id="profilView" class="space-y-4"> 
+                        <div class="grid grid-cols-3 gap-2 pt-4 border-t">
+                            <button onclick="enableEditMode()" class="bg-amber-500 text-white py-2 rounded-xl font-bold text-[10px] shadow-md">✏️ EDIT PROFILE</button>
+                            <button disabled class="bg-gray-300 text-gray-500 py-2 rounded-xl font-bold text-[10px] cursor-not-allowed">➕ IURAN</button>
+                        </div>
                     </div>
+
+                    <div id="profilEdit" class="hidden">
+                        </div>
 
                     <button onclick="lihatRiwayat(idAnggota)"class="w-full bg-blue-700 text-white py-3 rounded-xl font-black text-sm shadow-lg mt-2">
                         📜 LIHAT SEMUA RIWAYAT
@@ -455,10 +459,16 @@
                 currentUserData = d; // Simpan ke global buat referensi saat save
 
                 // Sembunyikan view, munculkan edit
-                document.getElementById('viewMode').classList.add('hidden');
-                const editArea = document.getElementById('editMode');
-                editArea.classList.remove('hidden');
+                const viewArea = document.getElementById('profilView'); // Tadinya 'viewMode'
+                const editArea = document.getElementById('profilEdit'); // Tadinya 'editMode'
 
+                if (viewArea && editArea) {
+                    viewArea.classList.add('hidden');
+                    editArea.classList.remove('hidden');
+                } else {
+                    console.error("Waduh, ID profilView atau profilEdit nggak ketemu di HTML!");
+                    return;
+                }
                 // Split tempat & tgl lahir (Format: "Jakarta, 1990-01-01")
                 let part = (d.ttl || "").split(", ");
                 let tempat = part[0] || "";
