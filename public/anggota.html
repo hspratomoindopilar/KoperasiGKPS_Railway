@@ -552,14 +552,14 @@
                 tbody.innerHTML = html;
                 document.getElementById('statLunas').textContent = `Rp ${totalLunas.toLocaleString('id-ID')}`;
                 document.getElementById('statTunggakan').textContent = `Rp ${totalTunggakan.toLocaleString('id-ID')}`;
-                
+
                 console.log(`Anggota gabung: Bulan ${blnGabung} Tahun ${thnGabung}`);
 
             } catch (e) {
                 console.error(e);
                 tbody.innerHTML = '<tr><td colspan="3" class="p-10 text-center text-red-500">Gagal memuat data</td></tr>';
             }
-            
+
         }
 
         async function logout() {
@@ -952,13 +952,15 @@
                 tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-red-500 font-bold">⚠️ Gagal memuat data</td></tr>`;
             }
         }
+        
         function handleRiwayatPinjaman() {
-            // Cek apakah data 'me' sudah ada isinya dari hasil fetch profil
-            if (typeof me !== 'undefined' && me !== null) {
-                // Panggil fungsi utama lu pake ID yang ada di dalam 'me'
+            // me harusnya sudah terisi karena renderBukuKendali sudah jalan di log
+            if (me && me.id_anggota) {
                 lihatRiwayatAngsuran(me.id_anggota);
             } else {
-                alert("Sabar Gan, data profil lagi loading...");
+                // Kalau masih muncul ini, berarti variabel 'me' lu belum jadi GLOBAL
+                console.error("Variabel me masih kosong!");
+                alert("Terjadi kesalahan data, coba refresh halaman (F5)");
             }
         }
     </script>
