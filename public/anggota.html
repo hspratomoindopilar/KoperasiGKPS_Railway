@@ -144,16 +144,19 @@
         async function initDashboard() {
             try {
                 const res = await fetch('/api/auth/me');
-                me = await res.json(); // 2. Isi variabel global 'me'
+                const data = await res.json();
 
-                // 3. Panggil fungsi render HANYA setelah me terisi
+                // JANGAN PAKE 'const me = data', tapi langsung:
+                me = data;
+
+                console.log("Data 'me' global sudah diisi:", me);
+
+                // Panggil fungsi render lainnya...
                 renderProfil(me);
-                renderBukuKendaliSaya();
             } catch (err) {
-                console.error("Gagal load profil:", err);
+                console.error("Gagal ambil data:", err);
             }
         }
-
         const API_BASE_URL = ''; // Tambahkan ini agar variabelnya terdefinisi
         let idAnggota; // Deklarasikan di atas agar bisa dibaca fungsi lihatRiwayat
         // 1. AMBIL ID DARI SESSION SAAT HALAMAN DIBUKA
@@ -952,7 +955,7 @@
                 tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-red-500 font-bold">⚠️ Gagal memuat data</td></tr>`;
             }
         }
-        
+
         function handleRiwayatPinjaman() {
             // me harusnya sudah terisi karena renderBukuKendali sudah jalan di log
             if (me && me.id_anggota) {
