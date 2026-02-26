@@ -595,7 +595,10 @@ app.post('/api/config/update-full', upload.single('logo_file'), async (req, res)
 // ==========================================
 app.get('/api/riwayat-pinjaman/:id_anggota', async (req, res) => {
     const { id_anggota } = req.params;
-
+    // VALIDASI: Pastikan id yang diminta sama dengan id di session (Kecuali Admin)
+    if (!req.session.userId || (req.session.userId != id_anggota && req.session.role !== 'admin')) {
+        return res.status(403).json({ error: "Akses ditolak!" });
+    }
     try {
         const query = `
             SELECT 
