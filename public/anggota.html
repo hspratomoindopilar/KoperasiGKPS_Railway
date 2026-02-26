@@ -543,24 +543,24 @@
 
                 // Tambahan "Bantalan" agar baris Desember tidak menempel ke bawah
                 html += `
-            <tr class="h-24">
-                <td colspan="3" class="text-center text-[10px] text-gray-400 font-bold tracking-widest pt-10">
-                    --- AKHIR LAPORAN ${thn} ---
-                </td>
-            </tr>`;
+                    <tr class="h-24">
+                        <td colspan="3" class="text-center text-[10px] text-gray-400 font-bold tracking-widest pt-10">
+                            --- AKHIR LAPORAN ${thn} ---
+                        </td>
+                    </tr>`;
 
                 tbody.innerHTML = html;
                 document.getElementById('statLunas').textContent = `Rp ${totalLunas.toLocaleString('id-ID')}`;
                 document.getElementById('statTunggakan').textContent = `Rp ${totalTunggakan.toLocaleString('id-ID')}`;
+                
+                console.log(`Anggota gabung: Bulan ${blnGabung} Tahun ${thnGabung}`);
 
             } catch (e) {
                 console.error(e);
                 tbody.innerHTML = '<tr><td colspan="3" class="p-10 text-center text-red-500">Gagal memuat data</td></tr>';
             }
-            // Debugging (opsional, cek di console F12)
-            console.log(`Anggota gabung: Bulan ${blnGabung} Tahun ${thnGabung}`);
+            
         }
-
 
         async function logout() {
             try {
