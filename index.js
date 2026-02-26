@@ -824,7 +824,16 @@ app.post('/api/login-anggota', async (req, res) => {
     const { no_anggota, pin_anggota } = req.body;
 
     try {
-        const query = "SELECT id_anggota, nama_lengkap, role, tgl_bergabung FROM anggota WHERE no_anggota = $1 AND pin_anggota = $2";
+        const query = `
+                SELECT 
+                    id_anggota, 
+                    nama_lengkap, 
+                    role, 
+                    tgl_bergabung,
+                    TO_CHAR(tgl_bergabung, 'YYYY-MM-DD') as tgl_gabung_str 
+                FROM anggota 
+                WHERE no_anggota = $1 AND pin_anggota = $2
+            `;
         const result = await pool.query(query, [no_anggota, pin_anggota]);
 
         if (result.rows.length > 0) {
@@ -840,7 +849,7 @@ app.post('/api/login-anggota', async (req, res) => {
                 no_anggota: no_anggota, // Ambil dari input login
                 nama_lengkap: user.nama_lengkap,
                 role: user.role,
-                tgl_bergabung: user.tgl_bergabung
+                tgl_bergabung: user.tgl_gabung_str
             };
 
             res.json({

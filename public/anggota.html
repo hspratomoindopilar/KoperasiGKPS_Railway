@@ -139,20 +139,18 @@
     <script>
 
         // Letakkan di paling atas script
-        let me = null;
+        let me = null; // 1. Harus di paling atas script!
 
         async function initDashboard() {
             try {
                 const res = await fetch('/api/auth/me');
-                const data = await res.json();
+                me = await res.json(); // 2. Isi variabel global 'me'
 
-                // Simpan data ke variabel global 'me'
-                me = data;
-
-                // Lanjutkan render UI...
+                // 3. Panggil fungsi render HANYA setelah me terisi
                 renderProfil(me);
+                renderBukuKendaliSaya();
             } catch (err) {
-                console.error("Gagal load session:", err);
+                console.error("Gagal load profil:", err);
             }
         }
 
