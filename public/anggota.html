@@ -137,6 +137,25 @@
     </div>
 
     <script>
+
+        // Letakkan di paling atas script
+        let me = null;
+
+        async function initDashboard() {
+            try {
+                const res = await fetch('/api/auth/me');
+                const data = await res.json();
+
+                // Simpan data ke variabel global 'me'
+                me = data;
+
+                // Lanjutkan render UI...
+                renderProfil(me);
+            } catch (err) {
+                console.error("Gagal load session:", err);
+            }
+        }
+
         const API_BASE_URL = ''; // Tambahkan ini agar variabelnya terdefinisi
         let idAnggota; // Deklarasikan di atas agar bisa dibaca fungsi lihatRiwayat
         // 1. AMBIL ID DARI SESSION SAAT HALAMAN DIBUKA
@@ -312,8 +331,8 @@
                             <span>IURAN WAJIB</span>
                         </button>
 
-                        <button onclick="lihatRiwayatAngsuran(me.id_anggota)" 
-                            class="bg-emerald-600 text-white py-3 rounded-xl font-black text-[10px] shadow-lg flex flex-col items-center justify-center gap-1 active:scale-95 transition-all">
+                        <button onclick="handleRiwayatPinjaman()" 
+                                class="bg-emerald-600 text-white py-3 rounded-xl font-black text-[10px] shadow-lg flex flex-col items-center justify-center gap-1 active:scale-95 transition-all">
                             <span>🏠 HISTORI</span>
                             <span>PINJAMAN</span>
                         </button>
@@ -933,6 +952,15 @@
             } catch (err) {
                 console.error("Frontend Error:", err);
                 tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-red-500 font-bold">⚠️ Gagal memuat data</td></tr>`;
+            }
+        }
+        function handleRiwayatPinjaman() {
+            // Cek apakah data 'me' sudah ada isinya dari hasil fetch profil
+            if (typeof me !== 'undefined' && me !== null) {
+                // Panggil fungsi utama lu pake ID yang ada di dalam 'me'
+                lihatRiwayatAngsuran(me.id_anggota);
+            } else {
+                alert("Sabar Gan, data profil lagi loading...");
             }
         }
     </script>
