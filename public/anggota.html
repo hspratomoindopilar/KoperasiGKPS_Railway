@@ -26,8 +26,8 @@
                     👤 Profil Saya
                 </h3>
                 <div class="flex gap-2">
-                    <button onclick="changePassword()"
-                        class="text-[10px] font-bold bg-amber-100 text-amber-600 px-3 py-1 rounded-full border border-amber-200 hover:bg-amber-200 transition-all">
+                    <button onclick="changePassword()" disabled title="next feature-PutragungCyber_Dev"
+                        class="bg-gray-300 text-gray-500 py-2 rounded-xl font-bold text-[10px] cursor-not-allowed">
                         🔑 GANTI PASS
                     </button>
                     <button onclick="handleLogout()"
@@ -259,7 +259,10 @@
 
                     <div id="profilView" class="space-y-4"> 
                         <div class="grid grid-cols-3 gap-2 pt-4 border-t">
-                            <button onclick="enableEditMode()" class="bg-amber-500 text-white py-2 rounded-xl font-bold text-[10px] shadow-md">✏️ EDIT PROFILE</button>
+                            <button onclick="enableEditMode()" disabled title="next feature-PutragungCyber_Dev" class="bg-gray-300 text-gray-500 py-2 rounded-xl font-bold text-[10px] cursor-not-allowed">✏️ EDIT PROFILE</button>
+                            <button onclick="showInfoBayar()" class="bg-blue-600 text-white py-2 rounded-xl font-bold text-[10px] shadow-sm active:scale-95 transition-transform">
+                                ℹ️ INFO BAYAR
+                            </button>
                             <button disabled title="next feature-PutragungCyber_Dev" class="bg-gray-300 text-gray-500 py-2 rounded-xl font-bold text-[10px] cursor-not-allowed">➕ IURAN</button>
                         </div>
                     </div>
@@ -788,6 +791,51 @@
                 } catch (err) {
                     console.error("Logout error:", err);
                     window.location.href = 'login.html';
+                }
+            });
+        }
+
+        function showInfoBayar() {
+            Swal.fire({
+                title: '<span class="text-blue-600 font-black">INFO PEMBAYARAN</span>',
+                html: `
+            <div class="text-left text-xs sm:text-sm space-y-4">
+                <p class="text-gray-600 font-medium leading-relaxed">
+                    Untuk Pembayaran Iuran / Angsuran <br>
+                    <span class="font-bold text-gray-800">Koperasi Jemaat GKPS Klender:</span>
+                </p>
+                
+                <div class="p-4 bg-gradient-to-br from-blue-50 to-white rounded-2xl border-2 border-blue-100 shadow-sm relative overflow-hidden">
+                    <div class="absolute top-0 right-0 p-2 opacity-10">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/5/5c/Bank_Central_Asia.svg" class="w-16">
+                    </div>
+                    
+                    <p class="text-[10px] text-blue-500 font-bold uppercase tracking-widest mb-1">Bank Tujuan</p>
+                    <p class="text-lg font-black text-gray-800">BANK BCA</p>
+                    <p class="text-2xl font-mono text-blue-700 font-black my-2 select-all tracking-tighter">0941 444 805</p>
+                    <p class="text-[11px] font-bold text-gray-600 uppercase">A.N ESJULINDO HARAPANTA</p>
+                </div>
+
+                <div class="text-center space-y-2 pt-2">
+                    <p class="font-bold text-gray-400 text-[10px] tracking-widest uppercase">--- ATAU SCAN QRIS ---</p>
+                    <div class="bg-white p-2 inline-block rounded-2xl shadow-md border border-gray-100">
+                        <img src="img/qris_koperasi.png" class="w-44 h-44 object-contain" 
+                             onerror="this.src='https://placehold.co/200x200?text=QRIS+COMMING+SOON'">
+                    </div>
+                </div>
+
+                <div class="bg-amber-50 p-3 rounded-xl border-l-4 border-amber-400">
+                    <p class="text-[10px] text-amber-800 leading-tight">
+                        <strong>PENTING:</strong> Mohon lampirkan bukti transfer saat melakukan konfirmasi pembayaran kepada pengurus agar iuran segera diupdate.
+                    </p>
+                </div>
+            </div>
+        `,
+                showCloseButton: true,
+                confirmButtonText: 'SAYA MENGERTI',
+                confirmButtonColor: '#2563eb',
+                customClass: {
+                    popup: 'rounded-3xl shadow-2xl border-4 border-blue-50'
                 }
             });
         }

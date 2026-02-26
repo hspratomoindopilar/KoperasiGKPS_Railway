@@ -10,10 +10,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Biar bisa akses /uploads/file.jpg
+// 1. HANYA BUKA AKSES UNTUK FOTO/ASET (IKLAN TETAP MUNCUL)
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
-// BIAR BISA AKSES /img/DesainPopUP_fix.png (INI YANG TADI KURANG)
-app.use(express.static(path.join(__dirname, 'public')));
+app.use('/img', express.static(path.join(__dirname, 'public/img')));
 
 app.use(session({
     secret: 'koperasi-secret-key',
@@ -822,7 +821,7 @@ app.post('/api/login-anggota', async (req, res) => {
     const { no_anggota, pin_anggota } = req.body;
 
     try {
-        const query = "SELECT id_anggota, nama_lengkap, role FROM anggota WHERE no_anggota = $1 AND pin_anggota = $2";
+        const query = "SELECT id_anggota, nama_lengkap, role, tgl_bergabung FROM anggota WHERE no_anggota = $1 AND pin_anggota = $2";
         const result = await pool.query(query, [no_anggota, pin_anggota]);
 
         if (result.rows.length > 0) {
