@@ -958,14 +958,27 @@
             }
         }
 
-        function handleRiwayatPinjaman() {
-            // me harusnya sudah terisi karena renderBukuKendali sudah jalan di log
-            if (me && me.id_anggota) {
-                lihatRiwayatAngsuran(me.id_anggota);
-            } else {
-                // Kalau masih muncul ini, berarti variabel 'me' lu belum jadi GLOBAL
-                console.error("Variabel me masih kosong!");
-                alert("Terjadi kesalahan data, coba refresh halaman (F5)");
+        async function handleRiwayatPinjaman() {
+            // 1. Cek dulu, kalau me sudah ada, langsung gas
+            if (window.me && window.me.id_anggota) {
+                lihatRiwayatAngsuran(window.me.id_anggota);
+                return;
+            }
+
+            // 2. Kalau me kosong, jangan langsung nyerah/alert. 
+            // Kita coba fetch ulang sebentar (siapa tau session-nya ada tapi variabelnya aja yang reset)
+            try {
+                const res = await fetch('/api/auth/me');
+                if (res.ok) {
+                    const data = await res.json();
+                    window.me = data; // Simpan ke global
+                    lihatRiwayatAngsuran(window.me.id_anggota);
+                } else {
+                    throw new Error();
+                }
+            } catch (err) {
+                console.error("Variabel me benar-benar kosong!");
+                alert("Sesi login berakhir atau data belum siap. Silakan refresh halaman.");
             }
         }
     </script>
