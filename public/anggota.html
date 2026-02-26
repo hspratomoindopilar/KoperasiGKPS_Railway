@@ -144,17 +144,19 @@
         async function initDashboard() {
             try {
                 const res = await fetch('/api/auth/me');
+                if (!res.ok) throw new Error('Not logged in');
+
                 const data = await res.json();
 
-                // JANGAN PAKE 'const me = data', tapi langsung:
+                // PENTING: Jangan pake 'const me', langsung 'me = data'
                 me = data;
 
-                console.log("Data 'me' global sudah diisi:", me);
+                console.log("ME GLOBAL BERHASIL DIISI:", me); // Cek ini di console nanti
 
-                // Panggil fungsi render lainnya...
                 renderProfil(me);
+                renderBukuKendaliSaya();
             } catch (err) {
-                console.error("Gagal ambil data:", err);
+                window.location.href = 'login.html';
             }
         }
         const API_BASE_URL = ''; // Tambahkan ini agar variabelnya terdefinisi
