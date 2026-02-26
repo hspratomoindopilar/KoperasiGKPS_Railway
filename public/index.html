@@ -393,6 +393,16 @@
                         periode</p>
                 </div>
             </div>
+            <div onclick="toggleModalTahunan(true)"
+                class="bg-rose-600 p-6 rounded-2xl shadow-lg cursor-pointer active:scale-95 transition-all flex items-center gap-4 text-white">
+                <div class="bg-white/20 p-3 rounded-xl">
+                    <i class="fas fa-chart-pie text-2xl"></i>
+                </div>
+                <div>
+                    <h3 class="font-black leading-tight text-lg">LAPORAN TAHUNAN (RAT)</h3>
+                    <p class="text-[10px] opacity-80">Rekapitulasi total iuran & pengeluaran setahun</p>
+                </div>
+            </div>
             <div onclick="showSubLaporan('cetak')"
                 class="bg-indigo-600 p-6 rounded-2xl shadow-lg cursor-pointer active:scale-95 transition-all flex items-center gap-4 text-white">
                 <div class="text-3xl">🖨️</div>
@@ -1192,6 +1202,41 @@
         </div>
     </div>
 </div>
+
+<div id="modalLaporanTahunan" class="hidden fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl animate-fade-in">
+        <div class="bg-emerald-600 p-6 text-white flex justify-between items-center">
+            <div>
+                <h2 class="text-xl font-black">LAPORAN TAHUNAN (RAT)</h2>
+                <p class="text-xs opacity-80">Ringkasan Arus Kas Per Tahun Buku</p>
+            </div>
+            <button onclick="toggleModalTahunan(false)" class="text-white hover:rotate-90 transition-transform">
+                <i class="fas fa-times text-2xl"></i>
+            </button>
+        </div>
+
+        <div class="p-6 border-b flex gap-3 items-end bg-gray-50">
+            <div class="flex-1">
+                <label class="text-[10px] font-bold text-gray-400 uppercase ml-1">Pilih Tahun Buku</label>
+                <select id="filterTahunRAT"
+                    class="w-full p-3 rounded-xl border-2 border-gray-100 font-bold text-gray-700 focus:border-emerald-500 outline-none transition-all">
+                </select>
+            </div>
+            <button onclick="ambilLaporanTahunan()"
+                class="bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-emerald-700 transition-all">
+                <i class="fas fa-sync-alt mr-2"></i> CEK DATA
+            </button>
+        </div>
+
+        <div id="isiLaporanTahunan" class="p-6 max-h-[60vh] overflow-y-auto">
+            <div class="text-center py-10 text-gray-400">
+                <i class="fas fa-chart-line text-4xl mb-3"></i>
+                <p class="text-sm font-medium">Silakan pilih tahun dan klik "Cek Data"</p>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     fetch('/api/config')
         .then(response => response.json())
@@ -3752,6 +3797,97 @@
                 // 5. Jika Error Koneksi/Sistem
                 Swal.fire('Gagal!', err.message, 'error');
             }
+        }
+    }
+
+    // Fungsi buka/tutup modal
+    function toggleModalTahunan(show) {
+        const modal = document.getElementById('modalLaporanTahunan');
+        if (show) {
+            modal.classList.remove('hidden');
+            populateTahunRAT(); // Isi dropdown pas modal dibuka
+        } else {
+            modal.classList.add('hidden');
+        }
+    }
+
+    // Fungsi isi dropdown tahun (Future-Proof: Gak perlu update tiap tahun)
+    function populateTahunRAT() {
+        const selectTahun = document.getElementById('filterTahunRAT');
+        const tahunSekarang = new Date().getFullYear();
+        const tahunMulai = 2013; // Sesuaikan dengan tahun awal koperasi lu berdiri
+
+        let options = '';
+        for (let i = tahunSekarang; i >= tahunMulai; i--) {
+            options += `<option value="${i}">Tahun Buku ${i}</option>`;
+        }
+        selectTahun.innerHTML = options;
+    }
+
+    async function ambilLaporanTahunan() {
+        const tahun = document.getElementById('filterTahunRAT').value;
+        const kontainer = document.getElementById('isiLaporanTahunan');
+
+        // Beri loading biar admin gak bingung
+        kontainer.innerHTML = '<div class="text-center py-10"><i class="fas fa-spinner fa-spin text-3xl text-emerald-600"></i><p class="mt-2 text-sm">Menghitung data setahun...</p></div>';
+
+        try {
+            const response = await fetch(`/api/laporan-tahunan/${tahun}`);
+            const result = await response.json();
+
+            if (result.status !== 'success') throw new Error(result.message);
+
+            const d = result.data;
+
+            // Mulai bangun tabelnya
+            let html = `
+            <div class="space-y-6">
+                <div class="bg-gray-50 p-4 rounded-2xl border-l-4 border-emerald-500">
+                    <span class="text-[10px] font-bold text-gray-400 uppercase">Saldo Awal 1 Jan ${d.tahun}</span>
+                    <h4 class="text-xl font-black text-gray-700">Rp ${d.saldo_awal.toLocaleString('id-ID')}</h4>
+                </div>
+
+                <div>
+                    <h5 class="text-xs font-bold text-emerald-700 mb-2 uppercase flex items-center gap-2">
+                        <i class="fas fa-arrow-down"></i> Rincian Pemasukan
+                    </h5>
+                    <table class="w-full text-sm">
+                        <tbody class="divide-y">
+                            ${d.pemasukan.map(p => `
+                                <tr class="py-2">
+                                    <td class="py-3 text-gray-600">${p.kategori}</td>
+                                    <td class="py-3 text-right font-bold text-emerald-600">Rp ${parseFloat(p.total).toLocaleString('id-ID')}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="pt-4 border-t">
+                    <h5 class="text-xs font-bold text-rose-700 mb-2 uppercase flex items-center gap-2">
+                        <i class="fas fa-arrow-up"></i> Rincian Pengeluaran
+                    </h5>
+                    <table class="w-full text-sm">
+                        <tbody class="divide-y text-gray-600">
+                            <tr><td class="py-2 italic">Tarik Simpanan</td><td class="py-2 text-right font-bold text-rose-500">Rp ${d.total_tarik.toLocaleString('id-ID')}</td></tr>
+                            <tr><td class="py-2 italic">Operasional</td><td class="py-2 text-right font-bold text-rose-500">Rp ${d.total_operasional.toLocaleString('id-ID')}</td></tr>
+                            <tr><td class="py-2 italic">Pencairan Pinjaman</td><td class="py-2 text-right font-bold text-rose-500">Rp ${d.total_pinjaman_cair.toLocaleString('id-ID')}</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="bg-emerald-600 p-5 rounded-2xl text-white shadow-lg shadow-emerald-200">
+                    <span class="text-[10px] font-bold opacity-80 uppercase">Saldo Akhir 31 Des ${d.tahun}</span>
+                    <h4 class="text-2xl font-black">Rp ${d.saldo_akhir.toLocaleString('id-ID')}</h4>
+                </div>
+            </div>
+        `;
+
+            kontainer.innerHTML = html;
+
+        } catch (err) {
+            console.error(err);
+            kontainer.innerHTML = `<div class="bg-red-50 p-4 rounded-xl text-red-600 text-center font-bold">⚠️ Gagal mengambil data: ${err.message}</div>`;
         }
     }
 

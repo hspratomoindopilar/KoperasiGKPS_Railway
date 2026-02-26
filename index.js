@@ -744,7 +744,11 @@ app.get('/api/laporan-periode', async (req, res) => {
 
         // 1. HITUNG SALDO AWAL PERIODE (Data akumulasi sebelum bulan ini)
         // SUM(jumlah_bayar) otomatis menghitung (Masuk - Tarik) karena penarikan nilainya minus
-        const saMasuk = await pool.query("SELECT SUM(jumlah_bayar) as total FROM transaksi WHERE (tahun_iuran < $1) OR (tahun_iuran = $1 AND bulan_iuran < $2)", [tahun, bulan]);
+        // Pakai startDate yang sudah lu definisikan di atas (${tahun}-${bulan}-01)
+        const saMasuk = await pool.query(
+            "SELECT SUM(jumlah_bayar) as total FROM transaksi WHERE created_at < $1", 
+            [startDate]
+        );
         const saKeluarOps = await pool.query("SELECT SUM(nominal) as total FROM pengeluaran WHERE tanggal < $1", [startDate]);
         const saPinjaman = await pool.query("SELECT SUM(nominal_pokok) as total FROM pinjaman WHERE tanggal_pinjam < $1", [startDate]);
 
@@ -755,11 +759,11 @@ app.get('/api/laporan-periode', async (req, res) => {
         // 2. AMBIL DETAIL TRANSAKSI (Iuran & Tarik Simpanan)
         const mMasuk = await pool.query(`
             SELECT created_at as tanggal, 
-                   CONCAT(UPPER(jenis_iuran), ' - ', (SELECT nama_lengkap FROM anggota WHERE id_anggota = transaksi.id_anggota)) as ket,
-                   jumlah_bayar as nominal_asli
+                CONCAT(UPPER(jenis_iuran), ' - ', (SELECT nama_lengkap FROM anggota WHERE id_anggota = transaksi.id_anggota)) as ket,
+                jumlah_bayar as nominal_asli
             FROM transaksi 
-            WHERE bulan_iuran = $1 AND tahun_iuran = $2
-        `, [bulan, tahun]);
+            WHERE created_at >= $1 AND created_at < ($1::date + interval '1 month')
+        `, [startDate]);
 
         // Proses mMasuk: Pisahkan mana yang murni MASUK dan mana yang KELUAR (Penarikan)
         const transaksiDiproses = mMasuk.rows.map(t => {
@@ -958,6 +962,58 @@ app.post('/api/update-password', async (req, res) => {
     } catch (err) {
         console.error('Error update password:', err);
         res.status(500).json({ success: false, message: 'Terjadi kesalahan pada server.' });
+    }
+});
+
+// ENDPOINT KHUSUS LAPORAN TAHUNAN (RAT)
+app.get('/api/laporan-tahunan/:tahun', async (req, res) => {
+    const { tahun } = req.params;
+    const awalTahun = `${tahun}-01-01`;
+    const akhirTahun = `${tahun}-12-31`;
+
+    try {
+        const config = await getGlobalConfig();
+        const saldoAwalConfig = parseFloat(config.saldo_awal || 0);
+
+        // A. HITUNG SALDO AWAL (Semua transaksi fisik sebelum 1 Januari tahun ini)
+        const saMasuk = await pool.query("SELECT SUM(jumlah_bayar) as total FROM transaksi WHERE created_at < $1", [awalTahun]);
+        const saKeluarOps = await pool.query("SELECT SUM(nominal) as total FROM pengeluaran WHERE tanggal < $1", [awalTahun]);
+        const saPinjaman = await pool.query("SELECT SUM(nominal_pokok) as total FROM pinjaman WHERE tanggal_pinjam < $1", [awalTahun]);
+
+        const saldoAwalTahun = saldoAwalConfig + 
+            parseFloat(saMasuk.rows[0].total || 0) - 
+            (parseFloat(saKeluarOps.rows[0].total || 0) + parseFloat(saPinjaman.rows[0].total || 0));
+
+        // B. RINGKASAN PEMASUKAN (Dinamis: Wajib, Pokok, Sukarela, dll)
+        const rincianMasuk = await pool.query(`
+            SELECT UPPER(jenis_iuran) as kategori, SUM(jumlah_bayar) as total 
+            FROM transaksi 
+            WHERE created_at BETWEEN $1 AND $2 AND jumlah_bayar > 0
+            GROUP BY jenis_iuran
+        `, [awalTahun, akhirTahun]);
+
+        // C. RINGKASAN PENGELUARAN (Tarik Simpanan, Ops, Pinjaman Cair)
+        const totalTarik = await pool.query("SELECT SUM(ABS(jumlah_bayar)) as total FROM transaksi WHERE created_at BETWEEN $1 AND $2 AND jumlah_bayar < 0", [awalTahun, akhirTahun]);
+        const totalOps = await pool.query("SELECT SUM(nominal) as total FROM pengeluaran WHERE tanggal BETWEEN $1 AND $2", [awalTahun, akhirTahun]);
+        const totalPinjam = await pool.query("SELECT SUM(nominal_pokok) as total FROM pinjaman WHERE tanggal_pinjam BETWEEN $1 AND $2", [awalTahun, akhirTahun]);
+
+        res.json({
+            status: 'success',
+            data: {
+                tahun: tahun,
+                saldo_awal: saldoAwalTahun,
+                pemasukan: rincianMasuk.rows,
+                total_tarik: parseFloat(totalTarik.rows[0].total || 0),
+                total_operasional: parseFloat(totalOps.rows[0].total || 0),
+                total_pinjaman_cair: parseFloat(totalPinjam.rows[0].total || 0),
+                saldo_akhir: saldoAwalTahun + 
+                    rincianMasuk.rows.reduce((a, b) => a + parseFloat(b.total), 0) - 
+                    (parseFloat(totalTarik.rows[0].total || 0) + parseFloat(totalOps.rows[0].total || 0) + parseFloat(totalPinjam.rows[0].total || 0))
+            }
+        });
+    } catch (err) {
+        console.error("Error Laporan Tahunan:", err.message);
+        res.status(500).json({ status: 'error', message: err.message });
     }
 });
 
