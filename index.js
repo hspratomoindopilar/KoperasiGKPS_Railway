@@ -746,7 +746,7 @@ app.get('/api/laporan-periode', async (req, res) => {
         // SUM(jumlah_bayar) otomatis menghitung (Masuk - Tarik) karena penarikan nilainya minus
         // Pakai startDate yang sudah lu definisikan di atas (${tahun}-${bulan}-01)
         const saMasuk = await pool.query(
-            "SELECT SUM(jumlah_bayar) as total FROM transaksi WHERE created_at < $1", 
+            "SELECT SUM(jumlah_bayar) as total FROM transaksi WHERE created_at < $1",
             [startDate]
         );
         const saKeluarOps = await pool.query("SELECT SUM(nominal) as total FROM pengeluaran WHERE tanggal < $1", [startDate]);
@@ -901,9 +901,21 @@ app.get('/api/anggota-detail/:id', async (req, res) => {
         const result = await pool.query(`
             SELECT 
                 a.*, 
-                COALESCE((SELECT SUM(jumlah_bayar) FROM transaksi WHERE id_anggota = a.id_anggota), 0) as total_simpanan,
+                -- 1. TOTAL SIMPANAN (Bersih: Pendaftaran dibuang, Penarikan dihitung otomatis karena nilainya negatif)
+                COALESCE((
+                    SELECT SUM(jumlah_bayar) 
+                    FROM transaksi 
+                    WHERE id_anggota = a.id_anggota 
+                    AND jenis_iuran IN ('wajib', 'sukarela', 'tarik_simpanan')
+                ), 0) as total_simpanan,
+                
+                -- 2. TOTAL WAJIB SAJA
                 COALESCE((SELECT SUM(jumlah_bayar) FROM transaksi WHERE id_anggota = a.id_anggota AND jenis_iuran = 'wajib'), 0) as total_simpanan_wajib_saja,
+                
+                -- 3. JUMLAH LUNAS WAJIB
                 (SELECT COUNT(*) FROM transaksi WHERE id_anggota = a.id_anggota AND jenis_iuran = 'wajib') as total_lunas_wajib,
+                
+                -- 4. CEK PINJAMAN AKTIF
                 (SELECT id FROM pinjaman WHERE id_anggota = a.id_anggota AND status != 'lunas' LIMIT 1) as id_pinjaman
             FROM anggota a 
             WHERE a.id_anggota = $1
@@ -980,8 +992,8 @@ app.get('/api/laporan-tahunan/:tahun', async (req, res) => {
         const saKeluarOps = await pool.query("SELECT SUM(nominal) as total FROM pengeluaran WHERE tanggal < $1", [awalTahun]);
         const saPinjaman = await pool.query("SELECT SUM(nominal_pokok) as total FROM pinjaman WHERE tanggal_pinjam < $1", [awalTahun]);
 
-        const saldoAwalTahun = saldoAwalConfig + 
-            parseFloat(saMasuk.rows[0].total || 0) - 
+        const saldoAwalTahun = saldoAwalConfig +
+            parseFloat(saMasuk.rows[0].total || 0) -
             (parseFloat(saKeluarOps.rows[0].total || 0) + parseFloat(saPinjaman.rows[0].total || 0));
 
         // B. RINGKASAN PEMASUKAN (Dinamis: Wajib, Pokok, Sukarela, dll)
@@ -1006,8 +1018,8 @@ app.get('/api/laporan-tahunan/:tahun', async (req, res) => {
                 total_tarik: parseFloat(totalTarik.rows[0].total || 0),
                 total_operasional: parseFloat(totalOps.rows[0].total || 0),
                 total_pinjaman_cair: parseFloat(totalPinjam.rows[0].total || 0),
-                saldo_akhir: saldoAwalTahun + 
-                    rincianMasuk.rows.reduce((a, b) => a + parseFloat(b.total), 0) - 
+                saldo_akhir: saldoAwalTahun +
+                    rincianMasuk.rows.reduce((a, b) => a + parseFloat(b.total), 0) -
                     (parseFloat(totalTarik.rows[0].total || 0) + parseFloat(totalOps.rows[0].total || 0) + parseFloat(totalPinjam.rows[0].total || 0))
             }
         });
