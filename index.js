@@ -268,6 +268,7 @@ app.get('/laporan-kas', async (req, res) => {
                 SUM(jumlah_bayar) as total 
             FROM transaksi 
             WHERE jenis_iuran IN ('wajib', 'sukarela', 'pokok', 'pendaftaran', 'admin_pinjaman','angsuran_pokok','pendapatan_bunga','tarik_simpanan')
+            AND NOT (jenis_iuran = 'pendaftaran' AND keterangan = 'MIGRASI PENDAFTARAN')
             GROUP BY jenis_iuran
         `;
         const result = await pool.query(query);
@@ -701,7 +702,7 @@ app.get('/api/dashboard-summary', async (req, res) => {
             FROM transaksi 
             WHERE jumlah_bayar > 0 
             -- TAMBAHKAN INI AGAR DATA MIGRASI HILANG DARI LAPORAN
-            AND NOT (jenis_iuran = 'pendaftaran' AND keterangan ILIKE '%MIGRASI PENDAFTARAN%')
+            AND NOT (jenis_iuran = 'pendaftaran' AND keterangan = 'MIGRASI PENDAFTARAN')
         `);
 
         const totalMasuk = parseFloat(masukRes.rows[0].total || 0);
