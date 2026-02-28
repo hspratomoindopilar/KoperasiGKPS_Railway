@@ -174,6 +174,7 @@ app.get('/daftar-anggota', async (req, res) => {
                     FROM transaksi 
                     WHERE id_anggota = a.id_anggota 
                     AND jenis_iuran IN ('wajib', 'sukarela', 'tarik_simpanan')
+                    AND keterangan != 'MIGRASI PENDAFTARAN'
                 ), 0) as total_simpanan,
                 
                 -- 2. KHUSUS WAJIB (Untuk hitung tunggakan di frontend)
@@ -695,10 +696,15 @@ app.get('/api/dashboard-summary', async (req, res) => {
         const config = await getGlobalConfig();
         const saldoAwal = parseFloat(config.saldo_awal || 0);
 
-        // 2. Hitung Total Pemasukan Murni (Hanya yang angkanya positif)
-        const masukRes = await pool.query("SELECT SUM(jumlah_bayar) as total FROM transaksi WHERE jumlah_bayar > 0");
-        const totalMasuk = parseFloat(masukRes.rows[0].total || 0);
+        const masukRes = await pool.query(`
+            SELECT SUM(jumlah_bayar) as total 
+            FROM transaksi 
+            WHERE jumlah_bayar > 0 
+            AND keterangan != 'MIGRASI PENDAFTARAN'
+        `);
 
+        const totalMasuk = parseFloat(masukRes.rows[0].total || 0);
+        
         // 2b. Hitung Khusus Tarik Simpanan (Yang angkanya negatif)
         const tarikRes = await pool.query("SELECT SUM(ABS(jumlah_bayar)) as total FROM transaksi WHERE jumlah_bayar < 0");
         const totalTarikSimpanan = parseFloat(tarikRes.rows[0].total || 0);
@@ -745,10 +751,15 @@ app.get('/api/laporan-periode', async (req, res) => {
         // 1. HITUNG SALDO AWAL PERIODE (Data akumulasi sebelum bulan ini)
         // SUM(jumlah_bayar) otomatis menghitung (Masuk - Tarik) karena penarikan nilainya minus
         // Pakai startDate yang sudah lu definisikan di atas (${tahun}-${bulan}-01)
-        const saMasuk = await pool.query(
-            "SELECT SUM(jumlah_bayar) as total FROM transaksi WHERE created_at < $1",
-            [startDate]
-        );
+        // Pastikan filternya ditambahkan agar saldo awal tidak terkontaminasi data migrasi
+
+        const saMasuk = await pool.query(`
+            SELECT SUM(jumlah_bayar) as total 
+            FROM transaksi 
+            WHERE created_at < $1 
+            AND keterangan != 'MIGRASI PENDAFTARAN'
+        `, [startDate]);
+        
         const saKeluarOps = await pool.query("SELECT SUM(nominal) as total FROM pengeluaran WHERE tanggal < $1", [startDate]);
         const saPinjaman = await pool.query("SELECT SUM(nominal_pokok) as total FROM pinjaman WHERE tanggal_pinjam < $1", [startDate]);
 
@@ -907,6 +918,7 @@ app.get('/api/anggota-detail/:id', async (req, res) => {
                     FROM transaksi 
                     WHERE id_anggota = a.id_anggota 
                     AND jenis_iuran IN ('wajib', 'sukarela', 'tarik_simpanan')
+                    AND keterangan != 'MIGRASI PENDAFTARAN'
                 ), 0) as total_simpanan,
                 
                 -- 2. TOTAL WAJIB SAJA
