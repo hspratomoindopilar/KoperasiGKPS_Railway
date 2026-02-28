@@ -700,7 +700,8 @@ app.get('/api/dashboard-summary', async (req, res) => {
             SELECT SUM(jumlah_bayar) as total 
             FROM transaksi 
             WHERE jumlah_bayar > 0 
-            AND keterangan != 'MIGRASI PENDAFTARAN'
+            -- TAMBAHKAN INI AGAR DATA MIGRASI HILANG DARI LAPORAN
+            AND keterangan NOT LIKE '%MIGRASI PENDAFTARAN%'
         `);
 
         const totalMasuk = parseFloat(masukRes.rows[0].total || 0);
@@ -757,9 +758,10 @@ app.get('/api/laporan-periode', async (req, res) => {
             SELECT SUM(jumlah_bayar) as total 
             FROM transaksi 
             WHERE created_at < $1 
-            AND keterangan != 'MIGRASI PENDAFTARAN'
+            -- TAMBAHKAN INI AGAR DATA MIGRASI HILANG DARI LAPORAN
+            AND keterangan NOT LIKE '%MIGRASI PENDAFTARAN%'
         `, [startDate]);
-        
+
         const saKeluarOps = await pool.query("SELECT SUM(nominal) as total FROM pengeluaran WHERE tanggal < $1", [startDate]);
         const saPinjaman = await pool.query("SELECT SUM(nominal_pokok) as total FROM pinjaman WHERE tanggal_pinjam < $1", [startDate]);
 
@@ -774,6 +776,8 @@ app.get('/api/laporan-periode', async (req, res) => {
                 jumlah_bayar as nominal_asli
             FROM transaksi 
             WHERE created_at >= $1 AND created_at < ($1::date + interval '1 month')
+            -- TAMBAHKAN INI AGAR DATA MIGRASI HILANG DARI LAPORAN
+            AND keterangan NOT LIKE '%MIGRASI PENDAFTARAN%'
         `, [startDate]);
 
         // Proses mMasuk: Pisahkan mana yang murni MASUK dan mana yang KELUAR (Penarikan)
@@ -918,7 +922,8 @@ app.get('/api/anggota-detail/:id', async (req, res) => {
                     FROM transaksi 
                     WHERE id_anggota = a.id_anggota 
                     AND jenis_iuran IN ('wajib', 'sukarela', 'tarik_simpanan')
-                    AND keterangan != 'MIGRASI PENDAFTARAN'
+                    -- TAMBAHKAN INI AGAR DATA MIGRASI HILANG DARI LAPORAN
+                    AND keterangan NOT LIKE '%MIGRASI PENDAFTARAN%'
                 ), 0) as total_simpanan,
                 
                 -- 2. TOTAL WAJIB SAJA
