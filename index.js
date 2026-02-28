@@ -701,7 +701,7 @@ app.get('/api/dashboard-summary', async (req, res) => {
             FROM transaksi 
             WHERE jumlah_bayar > 0 
             -- TAMBAHKAN INI AGAR DATA MIGRASI HILANG DARI LAPORAN
-            AND keterangan NOT LIKE '%MIGRASI PENDAFTARAN%'
+            AND NOT (jenis_iuran = 'pendaftaran' AND keterangan ILIKE '%MIGRASI PENDAFTARAN%')
         `);
 
         const totalMasuk = parseFloat(masukRes.rows[0].total || 0);
@@ -759,7 +759,7 @@ app.get('/api/laporan-periode', async (req, res) => {
             FROM transaksi 
             WHERE created_at < $1 
             -- TAMBAHKAN INI AGAR DATA MIGRASI HILANG DARI LAPORAN
-            AND keterangan NOT LIKE '%MIGRASI PENDAFTARAN%'
+            AND NOT (jenis_iuran = 'pendaftaran' AND keterangan ILIKE '%MIGRASI PENDAFTARAN%')
         `, [startDate]);
 
         const saKeluarOps = await pool.query("SELECT SUM(nominal) as total FROM pengeluaran WHERE tanggal < $1", [startDate]);
@@ -777,7 +777,7 @@ app.get('/api/laporan-periode', async (req, res) => {
             FROM transaksi 
             WHERE created_at >= $1 AND created_at < ($1::date + interval '1 month')
             -- TAMBAHKAN INI AGAR DATA MIGRASI HILANG DARI LAPORAN
-            AND keterangan NOT LIKE '%MIGRASI PENDAFTARAN%'
+            AND NOT (jenis_iuran = 'pendaftaran' AND keterangan ILIKE '%MIGRASI PENDAFTARAN%')
         `, [startDate]);
 
         // Proses mMasuk: Pisahkan mana yang murni MASUK dan mana yang KELUAR (Penarikan)
@@ -923,7 +923,7 @@ app.get('/api/anggota-detail/:id', async (req, res) => {
                     WHERE id_anggota = a.id_anggota 
                     AND jenis_iuran IN ('wajib', 'sukarela', 'tarik_simpanan')
                     -- TAMBAHKAN INI AGAR DATA MIGRASI HILANG DARI LAPORAN
-                    AND keterangan NOT LIKE '%MIGRASI PENDAFTARAN%'
+                    AND NOT (jenis_iuran = 'pendaftaran' AND keterangan ILIKE '%MIGRASI PENDAFTARAN%')
                 ), 0) as total_simpanan,
                 
                 -- 2. TOTAL WAJIB SAJA
