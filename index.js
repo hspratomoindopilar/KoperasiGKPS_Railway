@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const pool = require('./db');
+const { logActivity } = require('./logger');
 require('dotenv').config();
 const multer = require('multer');
 const path = require('path');
@@ -88,70 +89,64 @@ pool.query('SELECT NOW()', (err, res) => {
 
 // 2. TAMBAH ANGGOTA (REGISTRASI)
 app.post('/tambah-anggota', async (req, res) => {
+    // Ambil no_anggota dari session (siapa yang lagi login/admin)
+    const actorNo = req.session.no_anggota || 'SYSTEM'; 
+
     try {
-        // Ambil aturan nominal dari database
         const config = await getGlobalConfig();
         const NOMINAL_WAJIB = config ? config.iuran_wajib : 20000;
         const BIAYA_DAFTAR = config ? (config.biaya_pendaftaran || 100000) : 100000;
 
-        const {
-            nama_lengkap, alamat, no_hp, tgl_bergabung, nik,
-            jenis_kelamin, pekerjaan, ttl, iuran_sukarela
-        } = req.body;
+        const { nama_lengkap, alamat, no_hp, tgl_bergabung, nik, jenis_kelamin, pekerjaan, ttl, iuran_sukarela } = req.body;
 
-        // Validasi Tanggal
         const date = tgl_bergabung ? new Date(tgl_bergabung) : new Date();
         const mm = String(date.getMonth() + 1).padStart(2, '0');
         const yy = String(date.getFullYear()).substring(2);
         const prefix = mm + yy;
 
-        // Cari anggota dengan ID (primary key) terakhir untuk ambil nomor urutnya
         const lastMember = await pool.query("SELECT no_anggota FROM anggota ORDER BY id_anggota DESC LIMIT 1");
-
-        let nextSequence = 1; // Default kalau database masih kosong
-
+        let nextSequence = 1;
         if (lastMember.rows.length > 0) {
-            const lastNo = lastMember.rows[0].no_anggota; // Contoh: "0226076"
-            // Ambil 3 digit terakhir (076), ubah jadi angka, lalu tambah 1
+            const lastNo = lastMember.rows[0].no_anggota;
             const lastSeq = parseInt(lastNo.substring(lastNo.length - 3));
             nextSequence = lastSeq + 1;
         }
 
         const urutan = String(nextSequence).padStart(3, '0');
         let no_anggota = prefix + urutan;
-        // -----------------------------------------
 
-        // Simpan Data Anggota
+        // 1. SIMPAN DATA ANGGOTA
         const newMember = await pool.query(
             "INSERT INTO anggota (no_anggota, nama_lengkap, alamat, no_hp, tgl_bergabung, nik, jenis_kelamin, pekerjaan, ttl) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id_anggota",
             [no_anggota, nama_lengkap, alamat, no_hp, date, nik, jenis_kelamin, pekerjaan, ttl]
         );
 
         const id_baru = newMember.rows[0].id_anggota;
+        
+        // --- LOG: Anggota Baru ---
+        await logActivity(actorNo, 'INSERT', 'anggota', id_baru, null, { no_anggota, nama_lengkap });
+
         const bln = date.getMonth() + 1;
         const thn = date.getFullYear();
 
-        // --- SIMPAN TRANSAKSI OTOMATIS ---
+        // 2. SIMPAN TRANSAKSI (Suntik log di sini juga)
+        const transList = [
+            { jenis: 'pendaftaran', jumlah: BIAYA_DAFTAR, ket: 'Biaya Pendaftaran' },
+            { jenis: 'wajib', jumlah: NOMINAL_WAJIB, ket: 'Setoran awal' }
+        ];
 
-        // 1. Simpan Biaya Pendaftaran
-        await pool.query(
-            "INSERT INTO transaksi (id_anggota, jenis_iuran, jumlah_bayar, keterangan, status_verifikasi, bulan_iuran, tahun_iuran, created_at) VALUES ($1, 'pendaftaran', $2, 'Biaya Pendaftaran', true, $3, $4, NOW())",
-            [id_baru, BIAYA_DAFTAR, bln, thn]
-        );
+        if (parseFloat(iuran_sukarela) > 0) {
+            transList.push({ jenis: 'sukarela', jumlah: parseFloat(iuran_sukarela), ket: 'Setoran awal' });
+        }
 
-        // 2. Simpan Iuran Wajib (Otomatis 20rb dari DB)
-        await pool.query(
-            "INSERT INTO transaksi (id_anggota, jenis_iuran, jumlah_bayar, keterangan, status_verifikasi, bulan_iuran, tahun_iuran, created_at) VALUES ($1, 'wajib', $2, 'Setoran awal', true, $3, $4, NOW())",
-            [id_baru, NOMINAL_WAJIB, bln, thn]
-        );
-
-        // 3. Simpan Iuran Sukarela (Jika ada input)
-        const sukarela = parseFloat(iuran_sukarela) || 0;
-        if (sukarela > 0) {
-            await pool.query(
-                "INSERT INTO transaksi (id_anggota, jenis_iuran, jumlah_bayar, keterangan, status_verifikasi, bulan_iuran, tahun_iuran, created_at) VALUES ($1, 'sukarela', $2, 'Setoran awal', true, $3, $4, NOW())",
-                [id_baru, sukarela, bln, thn]
+        for (const item of transList) {
+            const resTrans = await pool.query(
+                "INSERT INTO transaksi (id_anggota, jenis_iuran, jumlah_bayar, keterangan, status_verifikasi, bulan_iuran, tahun_iuran, created_at) VALUES ($1, $2, $3, $4, true, $5, $6, NOW()) RETURNING id_transaksi",
+                [id_baru, item.jenis, item.jumlah, item.ket, bln, thn]
             );
+            
+            // --- LOG: Transaksi Otomatis ---
+            await logActivity(actorNo, 'INSERT', 'transaksi', resTrans.rows[0].id_transaksi, null, { jenis: item.jenis, jumlah: item.jumlah });
         }
 
         res.json({ success: true, message: "Berhasil!", no_anggota });
@@ -161,6 +156,7 @@ app.post('/tambah-anggota', async (req, res) => {
         res.status(500).json({ success: false, message: "Gagal: " + err.message });
     }
 });
+
 // 3. DAFTAR ANGGOTA (DENGAN TOTAL SALDO)
 app.get('/daftar-anggota', async (req, res) => {
     try {
