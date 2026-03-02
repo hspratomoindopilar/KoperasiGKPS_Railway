@@ -737,6 +737,15 @@ app.get('/api/dashboard-summary', async (req, res) => {
 
     } catch (err) {
         console.error("Error Dashboard API:", err.message);
+        // DEBUGGING
+        console.log("--- DEBUG DATA ---");
+        console.log("Saldo Awal (Config):", saldoAwal);
+        console.log("Total Masuk (Setelah Filter):", totalMasuk);
+        console.log("Total Keluar Ops:", totalKeluarOps);
+        console.log("Total Pinjaman:", totalPinjaman);
+        console.log("Total Tarik Simpanan:", totalTarikSimpanan);
+        console.log("Hasil Saldo Akhir:", saldoAkhir);
+        console.log("------------------");
         res.status(500).json({ message: "Gagal memuat ringkasan dashboard" });
     }
 });
