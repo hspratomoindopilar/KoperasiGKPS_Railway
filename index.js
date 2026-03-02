@@ -693,6 +693,7 @@ app.post('/api/pengeluaran', async (req, res) => {
 });
 
 app.get('/api/dashboard-summary', async (req, res) => {
+    console.log("--- BUKTI SERVER JALAN ---"); // Tambahkan baris ini
     try {
         const config = await getGlobalConfig();
         const saldoAwal = parseFloat(config.saldo_awal || 0);
