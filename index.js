@@ -328,40 +328,59 @@ app.post('/update-anggota', async (req, res) => {
 
 app.delete('/hapus-anggota/:no_anggota', async (req, res) => {
     const actorNo = req.session.no_anggota || 'SYSTEM';
+    const client = await pool.connect(); // Kita pakai client supaya bisa pakai Transaction (BEGIN/COMMIT)
 
     try {
         const { no_anggota } = req.params;
 
-        // --- 1. AMBIL FULL DATA SEBELUM DIHAPUS (UNTUK ARSIP LOG) ---
-        const memberData = await pool.query("SELECT * FROM anggota WHERE no_anggota = $1", [no_anggota]);
+        await client.query('BEGIN'); // Mulai proses "Satu paket"
 
+        // 1. Cek & Ambil data anggota dulu
+        const memberData = await client.query("SELECT * FROM anggota WHERE no_anggota = $1", [no_anggota]);
         if (memberData.rows.length === 0) {
+            await client.query('ROLLBACK');
             return res.status(404).json({ message: "Anggota tidak ditemukan" });
         }
 
         const dataLama = memberData.rows[0];
         const id_anggota = dataLama.id_anggota;
 
-        // --- 2. HAPUS TRANSAKSI (LOGIKA ASLI LO) ---
-        await pool.query("DELETE FROM transaksi WHERE id_anggota = $1", [id_anggota]);
+        // 2. HAPUS CUCU: Jadwal Angsuran
+        // Kita hapus semua jadwal yang terhubung dengan pinjaman milik anggota ini
+        await client.query(`
+            DELETE FROM jadwal_angsuran 
+            WHERE id_pinjaman IN (SELECT id FROM pinjaman WHERE id_anggota = $1)
+        `, [id_anggota]);
 
-        // --- 3. HAPUS ANGGOTA (LOGIKA ASLI LO) ---
-        await pool.query("DELETE FROM anggota WHERE no_anggota = $1", [no_anggota]);
+        // 3. HAPUS ANAK: Pinjaman
+        await client.query("DELETE FROM pinjaman WHERE id_anggota = $1", [id_anggota]);
 
-        // --- 4. SIMPAN KE LOG (DATA PENTING!) ---
+        // 4. HAPUS KERABAT: Transaksi (Iuran, Pokok, Bunga, dll)
+        // Ini yang bikin saldo kas lo balik (reset) ke kondisi awal
+        await client.query("DELETE FROM transaksi WHERE id_anggota = $1", [id_anggota]);
+
+        // 5. HAPUS BAPAK: Anggota
+        await client.query("DELETE FROM anggota WHERE no_anggota = $1", [no_anggota]);
+
+        // 6. LOG AKTIVITAS (Tetap catat siapa yang nge-reset data ini)
         await logActivity(
             actorNo, 
-            'DELETE', 
+            'HARD_DELETE_RESET', 
             'anggota', 
             id_anggota, 
-            dataLama, // Simpan seluruh profil anggota yang dihapus di sini
-            null      // New data null karena datanya hilang
+            dataLama, 
+            null
         );
 
-        res.json({ message: "Berhasil dihapus dari database" });
+        await client.query('COMMIT'); // Selesaikan semua penghapusan
+        res.json({ success: true, message: "Reset Berhasil! Anggota & seluruh riwayat kas terhapus." });
+
     } catch (err) {
-        console.error(err.message);
-        res.status(500).json({ message: "Gagal menghapus data" });
+        await client.query('ROLLBACK'); // Jika ada satu yang gagal, batalkan semua biar data nggak berantakan
+        console.error("Gagal Reset Data:", err.message);
+        res.status(500).json({ message: "Gagal reset: " + err.message });
+    } finally {
+        client.release(); // Kembalikan koneksi ke pool
     }
 });
 
