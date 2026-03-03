@@ -251,6 +251,11 @@
             </div>
             <span class="text-xs font-black text-gray-800">PENGATURAN</span>
         </div>
+        <div onclick="bukaMenu('audit_log')"
+            class="bg-white p-6 rounded-3xl shadow-sm border-b-8 border-purple-600 cursor-pointer active:scale-95 transition-all flex flex-col items-center justify-center gap-3 text-center h-40">
+            <div class="text-4xl">📜</div>
+            <h3 class="font-black text-gray-700 text-xs md:text-sm uppercase tracking-tighter">Riwayat Aktivitas</h3>
+        </div>
     </div>
 
     <div id="sectionRegistrasi" class="hidden">
@@ -1513,7 +1518,88 @@
         } else if (menu === 'bukukas') {
             if (sectionKas) sectionKas.classList.remove('hidden');
             fetchBukuKas(); // Panggil fungsi yang kita buat tadi buat narik data pengeluaran
+        } else if (menu === 'audit_log') {
+            // Kita tampilkan lagi sectionDashboard-nya
+            document.getElementById('sectionDashboard').classList.remove('hidden');
+            // Panggil mesinnya buat isi data ke dalam dashboard tersebut
+            muatAuditLog(); 
         }
+    }
+
+    // Tambahkan ke dalam fungsi switch menu lo (bukaMenu)
+    function muatAuditLog() {
+        // Kita targetkan ke sectionDashboard sesuai keinginan lo
+        const kontainer = document.getElementById('sectionDashboard');
+
+        // Kita isi HTML-nya (Gue tambahin tombol kembali biar gak terjebak di situ)
+        kontainer.innerHTML = `
+        <div class="p-4 bg-gray-50 min-h-screen">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-black text-purple-700">📜 RIWAYAT AKTIVITAS</h2>
+                <button onclick="location.reload()" class="bg-gray-200 px-4 py-2 rounded-xl text-sm font-bold">Kembali</button>
+            </div>
+            
+            <div class="overflow-x-auto bg-white rounded-3xl shadow-sm border border-gray-100">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-purple-50 text-purple-700">
+                        <tr>
+                            <th class="p-4 text-left font-black uppercase">Waktu</th>
+                            <th class="p-4 text-left font-black uppercase">Admin/User</th>
+                            <th class="p-4 text-left font-black uppercase">Aksi</th>
+                            <th class="p-4 text-left font-black uppercase">Data</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabelLogBody">
+                        <tr><td colspan="4" class="p-10 text-center text-gray-400 italic">Sedang mengambil rekaman CCTV...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+
+        // Ambil data dari API yang kita buat di index.js tadi
+        fetch('/api/logs')
+            .then(res => res.json())
+            .then(data => {
+                const body = document.getElementById('tabelLogBody');
+                if (data.length === 0) {
+                    body.innerHTML = '<tr><td colspan="4" class="p-10 text-center">Belum ada aktivitas tercatat.</td></tr>';
+                    return;
+                }
+
+                body.innerHTML = data.map(log => `
+                <tr class="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                    <td class="p-4 text-gray-500 font-medium">${log.tgl_format}</td>
+                    <td class="p-4"><span class="bg-gray-100 px-2 py-1 rounded-md font-mono text-xs">${log.actor_no_anggota}</span></td>
+                    <td class="p-4">
+                        <span class="px-3 py-1 rounded-full text-[10px] font-black uppercase ${getWarnaAksi(log.action)}">
+                            ${log.action}
+                        </span>
+                        <div class="text-[10px] text-gray-400 mt-1">Tabel: ${log.table_name}</div>
+                    </td>
+                    <td class="p-4">
+                        <details class="group">
+                            <summary class="cursor-pointer text-purple-600 font-bold list-none group-open:text-gray-400">
+                                🔍 Lihat Detail
+                            </summary>
+                            <div class="mt-2 p-3 bg-gray-900 text-green-400 rounded-xl text-[10px] font-mono leading-relaxed overflow-auto max-w-xs shadow-inner">
+                                <pre>${JSON.stringify(log.new_data || log.old_data, null, 2)}</pre>
+                            </div>
+                        </details>
+                    </td>
+                </tr>
+            `).join('');
+            })
+            .catch(err => {
+                document.getElementById('tabelLogBody').innerHTML = `<tr><td colspan="4" class="p-10 text-center text-red-500">Error: ${err.message}</td></tr>`;
+            });
+    }
+    // Helper warna biar tabelnya meriah
+    function getWarnaAksi(aksi) {
+        if (aksi.includes('INSERT')) return 'bg-green-100 text-green-700';
+        if (aksi.includes('UPDATE')) return 'bg-blue-100 text-blue-700';
+        if (aksi.includes('DELETE')) return 'bg-red-100 text-red-700';
+        return 'bg-gray-100 text-gray-700';
     }
     function kembaliKeMenu() {
         // 1. Munculkan kembali Highlight Card dan Menu Utama

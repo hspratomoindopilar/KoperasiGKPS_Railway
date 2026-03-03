@@ -1172,6 +1172,22 @@ app.get('/api/laporan-tahunan/:tahun', async (req, res) => {
     }
 });
 
+//endpoint untuk Activity LOG
+app.get('/api/logs', async (req, res) => {
+    try {
+        // Ambil 50 aktivitas terbaru
+        const result = await pool.query(`
+            SELECT *, TO_CHAR(created_at, 'DD/MM/YYYY HH24:MI') as tgl_format 
+            FROM activity_log 
+            ORDER BY created_at DESC 
+            LIMIT 50
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
 // F. Terakhir: Static Folder (Hanya untuk aset seperti CSS/JS/Gambar)
 app.use(express.static('public'));
 
