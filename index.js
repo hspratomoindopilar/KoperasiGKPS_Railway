@@ -204,8 +204,10 @@ app.get('/riwayat-iuran/:id_anggota', async (req, res) => {
 
 // 5. TAMBAH IURAN BULK (SUDAH KONEK GLOBAL CONFIG)
 app.post('/tambah-iuran-bulk', async (req, res) => {
+    // Ambil siapa yang lagi login
+    const actorNo = req.session.no_anggota || 'SYSTEM';
+
     try {
-        // 1. Ambil config terbaru dari Database
         const config = await getGlobalConfig();
         const NOMINAL_WAJIB_DB = config ? config.iuran_wajib : 20000;
 
@@ -215,12 +217,11 @@ app.post('/tambah-iuran-bulk', async (req, res) => {
         let thn = parseInt(tahun_mulai);
         let jumlahBayarFinal = parseFloat(jumlah_per_bulan);
 
-        // 2. LOGIKA PROTEKSI: Jika iuran WAJIB, paksa pakai angka dari DB
         if (jenis_iuran === 'wajib') {
             jumlahBayarFinal = NOMINAL_WAJIB_DB;
         }
 
-        // 3. Eksekusi Loop Input ke Database
+        // Loop Input ke Database
         for (let i = 0; i < total_bulan; i++) {
             if (bln > 12) {
                 bln = 1;
@@ -232,17 +233,25 @@ app.post('/tambah-iuran-bulk', async (req, res) => {
                     id_anggota, jenis_iuran, jumlah_bayar, keterangan, 
                     status_verifikasi, bulan_iuran, tahun_iuran, created_at
                 ) VALUES ($1, $2, $3, $4, true, $5, $6, NOW())`,
-                [
-                    id_anggota,
-                    jenis_iuran,
-                    jumlahBayarFinal,
-                    `Iuran ${jenis_iuran} (Bulk)`,
-                    bln,
-                    thn
-                ]
+                [id_anggota, jenis_iuran, jumlahBayarFinal, `Iuran ${jenis_iuran} (Bulk)`, bln, thn]
             );
             bln++;
         }
+
+        // --- LOG: Simpan Ringkasan Aksi Bulk ---
+        await logActivity(
+            actorNo, 
+            'INSERT', 
+            'transaksi_bulk', 
+            id_anggota, // Kita pakai ID Anggota sebagai target karena ini bulk
+            null, 
+            { 
+                jenis_iuran, 
+                total_bulan, 
+                nominal_per_bulan: jumlahBayarFinal,
+                periode_mulai: `${bulan_mulai}/${tahun_mulai}`
+            }
+        );
 
         res.json({
             success: true,
@@ -276,23 +285,38 @@ app.get('/laporan-kas', async (req, res) => {
 });
 
 app.post('/update-anggota', async (req, res) => {
+    const actorNo = req.session.no_anggota || 'SYSTEM';
+
     try {
-        // Ambil data dari frontend (termasuk potongan tempat dan tgl lahir)
         const {
             no_anggota, nama_lengkap, nik, no_hp, pekerjaan,
             alamat, jenis_kelamin, tgl_bergabung,
             edit_tempat, edit_tgl_lahir
         } = req.body;
 
-        // Kita gabungkan di sini biar formatnya tetap "Jakarta, 1990-05-20" di kolom ttl
         const ttlGabungan = `${edit_tempat}, ${edit_tgl_lahir}`;
 
+        // --- 1. AMBIL DATA LAMA (SNAPSHOT) SEBELUM DI-UPDATE ---
+        const oldDataQuery = await pool.query("SELECT * FROM anggota WHERE no_anggota = $1", [no_anggota]);
+        const oldData = oldDataQuery.rows[0];
+
+        // --- 2. EKSEKUSI UPDATE (LOGIKA ASLI LO) ---
         await pool.query(
             `UPDATE anggota SET 
                 nama_lengkap=$1, nik=$2, no_hp=$3, pekerjaan=$4, 
                 alamat=$5, ttl=$6, jenis_kelamin=$7, tgl_bergabung=$8 
              WHERE no_anggota=$9`,
             [nama_lengkap, nik, no_hp, pekerjaan, alamat, ttlGabungan, jenis_kelamin, tgl_bergabung, no_anggota]
+        );
+
+        // --- 3. SIMPAN KE LOG (COMPARE OLD VS NEW) ---
+        await logActivity(
+            actorNo, 
+            'UPDATE', 
+            'anggota', 
+            null, // Kita pakai no_anggota di data, jadi target_id bisa kosong
+            oldData, // Data sebelum diubah
+            { nama_lengkap, nik, no_hp, pekerjaan, alamat, ttl: ttlGabungan, jenis_kelamin, tgl_bergabung } // Data sesudah diubah
         );
 
         res.json({ message: "Update data berhasil!" });
@@ -302,23 +326,37 @@ app.post('/update-anggota', async (req, res) => {
     }
 });
 
-app.delete('/hapus-anggota/:no_anggota', async (req, res) => {
+app.post('/hapus-anggota/:no_anggota', async (req, res) => {
+    const actorNo = req.session.no_anggota || 'SYSTEM';
+
     try {
         const { no_anggota } = req.params;
-        // 1. Cari ID-nya dulu
-        const member = await pool.query("SELECT id_anggota FROM anggota WHERE no_anggota = $1", [no_anggota]);
 
-        if (member.rows.length === 0) {
+        // --- 1. AMBIL FULL DATA SEBELUM DIHAPUS (UNTUK ARSIP LOG) ---
+        const memberData = await pool.query("SELECT * FROM anggota WHERE no_anggota = $1", [no_anggota]);
+
+        if (memberData.rows.length === 0) {
             return res.status(404).json({ message: "Anggota tidak ditemukan" });
         }
 
-        const id_anggota = member.rows[0].id_anggota;
+        const dataLama = memberData.rows[0];
+        const id_anggota = dataLama.id_anggota;
 
-        // 2. Hapus transaksi (iuran) dulu karena ada Foreign Key
+        // --- 2. HAPUS TRANSAKSI (LOGIKA ASLI LO) ---
         await pool.query("DELETE FROM transaksi WHERE id_anggota = $1", [id_anggota]);
 
-        // 3. Baru hapus anggotanya
+        // --- 3. HAPUS ANGGOTA (LOGIKA ASLI LO) ---
         await pool.query("DELETE FROM anggota WHERE no_anggota = $1", [no_anggota]);
+
+        // --- 4. SIMPAN KE LOG (DATA PENTING!) ---
+        await logActivity(
+            actorNo, 
+            'DELETE', 
+            'anggota', 
+            id_anggota, 
+            dataLama, // Simpan seluruh profil anggota yang dihapus di sini
+            null      // New data null karena datanya hilang
+        );
 
         res.json({ message: "Berhasil dihapus dari database" });
     } catch (err) {
@@ -326,6 +364,7 @@ app.delete('/hapus-anggota/:no_anggota', async (req, res) => {
         res.status(500).json({ message: "Gagal menghapus data" });
     }
 });
+
 // GANTI BAGIAN INI DI index.js LU
 app.get('/api/laporan-transaksi', async (req, res) => {
     try {
@@ -356,7 +395,9 @@ app.get('/api/laporan-transaksi', async (req, res) => {
     }
 });
 app.post('/api/pinjaman', async (req, res) => {
+    const actorNo = req.session.no_anggota || 'SYSTEM'; // Ambil siapa yang input
     const client = await pool.connect();
+    
     try {
         const { id_anggota, nominal_pokok, tenor, bunga_persen } = req.body;
         await client.query('BEGIN');
@@ -368,7 +409,7 @@ app.post('/api/pinjaman', async (req, res) => {
             return res.status(400).json({ success: false, message: "Anggota masih punya pinjaman aktif!" });
         }
 
-        // 2. Ambil Config Admin (Sesuai tabel pengaturan lu: biaya_admin_pinjaman)
+        // 2. Ambil Config Admin
         const config = await getGlobalConfig();
         const nominalAdmin = config ? (parseFloat(config['biaya_admin_pinjaman']) || 0) : 0;
 
@@ -382,10 +423,9 @@ app.post('/api/pinjaman', async (req, res) => {
 
         // --- GENERATE JADWAL ANGSURAN (MODEL BUNGA MENURUN) ---
         const pokokPerBulan = Math.floor(nominal_pokok / tenor);
-        let sisaPinjaman = nominal_pokok; // Kita mulai dari saldo awal
+        let sisaPinjaman = nominal_pokok;
 
         for (let i = 1; i <= tenor; i++) {
-            // Bunga dihitung dari sisa pinjaman (Bukan dari total awal)
             const bungaBulanIni = Math.floor(sisaPinjaman * (bunga_persen / 100));
             const totalTagihan = pokokPerBulan + bungaBulanIni;
 
@@ -394,16 +434,26 @@ app.post('/api/pinjaman', async (req, res) => {
                 VALUES ($1, $2, $3, $4, $5, 'belum_bayar')`,
                 [idPinjaman, i, pokokPerBulan, bungaBulanIni, totalTagihan]
             );
-
-            // Update sisa pinjaman buat itungan bulan depan
             sisaPinjaman -= pokokPerBulan;
         }
-        // 5. Catat Admin ke Kas (Biar log GAK null/null lagi)
+
+        // 5. Catat Admin ke Kas
         const now = new Date();
         await client.query(
             `INSERT INTO transaksi (id_anggota, jenis_iuran, jumlah_bayar, keterangan, bulan_iuran, tahun_iuran) 
              VALUES ($1, 'admin_pinjaman', $2, $3, $4, $5)`,
             [id_anggota, nominalAdmin, `Biaya Admin Pinjaman (ID: ${idPinjaman})`, now.getMonth() + 1, now.getFullYear()]
+        );
+
+        // --- LOG: Catat Aktivitas Pinjaman Baru ---
+        // Kita taruh di dalam transaksi biar kalau log gagal, semua batal (opsional, tapi lebih aman)
+        await logActivity(
+            actorNo, 
+            'INSERT', 
+            'pinjaman', 
+            idPinjaman, 
+            null, 
+            { id_anggota, nominal_pokok, tenor, bunga_persen, biaya_admin: nominalAdmin }
         );
 
         await client.query('COMMIT');
@@ -417,6 +467,7 @@ app.post('/api/pinjaman', async (req, res) => {
         client.release();
     }
 });
+
 // API UNTUK MENGAMBIL DAFTAR PINJAMAN
 app.get('/api/daftar-pinjaman', async (req, res) => {
     try {
@@ -438,13 +489,15 @@ app.get('/api/daftar-pinjaman', async (req, res) => {
 });
 
 app.post('/api/bayar-angsuran', async (req, res) => {
-    const client = await pool.connect(); // Pake client buat transaksi SQL
+    const actorNo = req.session.no_anggota || 'SYSTEM'; // Siapa yang proses bayar
+    const client = await pool.connect(); 
+    
     try {
         const { id_jadwal } = req.body;
 
-        await client.query('BEGIN'); // Mulai transaksi
+        await client.query('BEGIN'); 
 
-        // 1. Ambil data jadwalnya dulu
+        // 1. Ambil data jadwalnya dulu (Snapshot Data Sebelum Update)
         const infoJadwal = await client.query(
             `SELECT j.*, p.id_anggota 
              FROM jadwal_angsuran j 
@@ -453,9 +506,9 @@ app.post('/api/bayar-angsuran', async (req, res) => {
         );
 
         if (infoJadwal.rows.length === 0) throw new Error("Jadwal tidak ditemukan");
-        const data = infoJadwal.rows[0];
+        const dataLama = infoJadwal.rows[0];
 
-        if (data.status === 'lunas') throw new Error("Angsuran ini sudah lunas!");
+        if (dataLama.status === 'lunas') throw new Error("Angsuran ini sudah lunas!");
 
         // 2. UPDATE status di jadwal_angsuran
         await client.query(
@@ -471,21 +524,37 @@ app.post('/api/bayar-angsuran', async (req, res) => {
         await client.query(
             `INSERT INTO transaksi (id_anggota, jenis_iuran, jumlah_bayar, keterangan, bulan_iuran, tahun_iuran) 
              VALUES ($1, 'angsuran_pokok', $2, $3, $4, $5)`,
-            [data.id_anggota, data.pokok_rp, `Angsuran Pokok ke-${data.angsuran_ke} (No: ${data.no_angsuran})`, bulan, tahun]
+            [dataLama.id_anggota, dataLama.pokok_rp, `Angsuran Pokok ke-${dataLama.angsuran_ke} (No: ${dataLama.no_angsuran})`, bulan, tahun]
         );
 
         // 4. INSERT Transaksi BUNGA
         await client.query(
             `INSERT INTO transaksi (id_anggota, jenis_iuran, jumlah_bayar, keterangan, bulan_iuran, tahun_iuran) 
              VALUES ($1, 'pendapatan_bunga', $2, $3, $4, $5)`,
-            [data.id_anggota, data.bunga_rp, `Bunga Angsuran ke-${data.angsuran_ke} (No: ${data.no_angsuran})`, bulan, tahun]
+            [dataLama.id_anggota, dataLama.bunga_rp, `Bunga Angsuran ke-${dataLama.angsuran_ke} (No: ${dataLama.no_angsuran})`, bulan, tahun]
         );
 
-        await client.query('COMMIT'); // Eksekusi semua!
+        // --- LOG: Catat Aktivitas Pembayaran ---
+        await logActivity(
+            actorNo, 
+            'UPDATE', 
+            'jadwal_angsuran', 
+            id_jadwal, 
+            { status: dataLama.status, tgl_bayar: dataLama.tgl_bayar }, // Status lama (belum_bayar)
+            { 
+                status: 'lunas', 
+                id_anggota: dataLama.id_anggota, 
+                pokok: dataLama.pokok_rp, 
+                bunga: dataLama.bunga_rp,
+                angsuran_ke: dataLama.angsuran_ke
+            }
+        );
+
+        await client.query('COMMIT'); 
         res.json({ success: true, message: "Pembayaran Pokok & Bunga berhasil dicatat!" });
 
     } catch (err) {
-        await client.query('ROLLBACK'); // Batalin semua kalau ada error
+        await client.query('ROLLBACK'); 
         console.error(err);
         res.status(500).json({ success: false, message: err.message });
     } finally {
@@ -562,18 +631,26 @@ app.get('/api/config', async (req, res) => {
 
 // Route baru untuk handle upload logo + update data teks sekaligus
 app.post('/api/config/update-full', upload.single('logo_file'), async (req, res) => {
+    const actorNo = req.session.no_anggota || 'SYSTEM';
+
     try {
         const bodyData = req.body;
 
-        // 1. Jika ada file logo baru yang diupload, masukkan ke database
+        // --- 1. AMBIL SNAPSHOT DATA LAMA SEBELUM UPDATE ---
+        const oldConfigResult = await pool.query("SELECT nama_key, nilai_nominal FROM pengaturan");
+        const oldConfig = {};
+        oldConfigResult.rows.forEach(row => {
+            oldConfig[row.nama_key] = row.nilai_nominal;
+        });
+
+        // 2. Jika ada file logo baru yang diupload
         if (req.file) {
             const logoPath = `/uploads/${req.file.filename}`;
             await pool.query("UPDATE pengaturan SET nilai_nominal = $1 WHERE nama_key = 'logo_url'", [logoPath]);
         }
 
-        // 2. Update data lainnya (nama, iuran, dll) satu per satu
+        // 3. Update data lainnya (nama, iuran, dll) satu per satu
         for (const [key, value] of Object.entries(bodyData)) {
-            // Kita filter agar tidak mencoba update 'logo_file' ke kolom nilai_nominal
             if (key !== 'logo_file') {
                 await pool.query(
                     "UPDATE pengaturan SET nilai_nominal = $1 WHERE nama_key = $2",
@@ -582,10 +659,20 @@ app.post('/api/config/update-full', upload.single('logo_file'), async (req, res)
             }
         }
 
+        // --- 4. SIMPAN KE LOG (COMPARE CONFIG) ---
+        await logActivity(
+            actorNo, 
+            'UPDATE', 
+            'pengaturan', 
+            null, 
+            oldConfig, // Data semua config sebelum diubah
+            { ...bodyData, logo_file: req.file ? req.file.filename : 'no change' } // Data baru
+        );
+
         res.json({ message: "Berhasil update konfigurasi" });
     } catch (err) {
         console.error(err.message);
-        res.status(500).json({ message: "Gagal update" });
+        res.status(500).json({ message: "Gagal update: " + err.message });
     }
 });
 
@@ -656,28 +743,45 @@ app.get('/api/pengeluaran', async (req, res) => {
 });
 
 app.post('/api/pengeluaran', async (req, res) => {
+    const actorNo = req.session.no_anggota || 'SYSTEM'; // Siapa yang lagi login
     const { kategori, keterangan, nominal, admin_input } = req.body;
 
     try {
-        // Query Insert: tanggal otomatis pakai CURRENT_DATE supaya seragam
+        // Query Insert: tetap pakai CURRENT_DATE sesuai kode asli lo
         const query = `
             INSERT INTO pengeluaran (tanggal, kategori, keterangan, nominal, admin_input) 
             VALUES (CURRENT_DATE, $1, $2, $3, $4) 
             RETURNING *`;
 
         const values = [
-            kategori.toUpperCase(), // Paksa uppercase biar database rapi
+            kategori.toUpperCase(), 
             keterangan,
             nominal,
             admin_input
         ];
 
         const result = await pool.query(query, values);
+        const dataBaru = result.rows[0];
+
+        // --- LOG: Catat Pengeluaran Keluar ---
+        await logActivity(
+            actorNo, 
+            'INSERT', 
+            'pengeluaran', 
+            dataBaru.id, // Ambil ID dari hasil RETURNING
+            null, 
+            { 
+                kategori: dataBaru.kategori, 
+                nominal: dataBaru.nominal, 
+                keterangan: dataBaru.keterangan,
+                admin_input: dataBaru.admin_input 
+            }
+        );
 
         res.status(200).json({
             status: 'success',
             message: 'Data pengeluaran berhasil dicatat',
-            data: result.rows[0]
+            data: dataBaru
         });
     } catch (err) {
         console.error("Error Simpan BKU:", err.message);
@@ -852,10 +956,7 @@ app.post('/api/login-anggota', async (req, res) => {
     try {
         const query = `
                 SELECT 
-                    id_anggota, 
-                    nama_lengkap, 
-                    role, 
-                    tgl_bergabung,
+                    id_anggota, nama_lengkap, role, tgl_bergabung,
                     TO_CHAR(tgl_bergabung, 'YYYY-MM-DD') as tgl_gabung_str 
                 FROM anggota 
                 WHERE no_anggota = $1 AND pin_anggota = $2
@@ -865,25 +966,43 @@ app.post('/api/login-anggota', async (req, res) => {
         if (result.rows.length > 0) {
             const user = result.rows[0];
 
-            // Simpan ke Session agar dikenal oleh endpoint lain
+            // Set Session
             req.session.userId = user.id_anggota;
+            req.session.no_anggota = no_anggota; // PENTING: biar endpoint lain tau siapa 'actor'nya
             req.session.role = user.role;
             req.session.nama = user.nama_lengkap;
 
             req.session.user = {
                 id_anggota: user.id_anggota,
-                no_anggota: no_anggota, // Ambil dari input login
+                no_anggota: no_anggota,
                 nama_lengkap: user.nama_lengkap,
                 role: user.role,
                 tgl_bergabung: user.tgl_gabung_str
             };
 
-            res.json({
-                success: true,
-                data: req.session.user // Pakai data dari session saja biar sama
-            });
+            // --- LOG: LOGIN SUKSES ---
+            await logActivity(
+                no_anggota, 
+                'LOGIN', 
+                'auth', 
+                user.id_anggota, 
+                null, 
+                { status: 'success', ip: req.ip }
+            );
+
+            res.json({ success: true, data: req.session.user });
 
         } else {
+            // --- LOG: LOGIN GAGAL (Penting buat deteksi hacker) ---
+            await logActivity(
+                no_anggota || 'UNKNOWN', 
+                'LOGIN_FAIL', 
+                'auth', 
+                null, 
+                null, 
+                { message: "Salah PIN/No Anggota", ip: req.ip }
+            );
+
             res.status(401).json({ success: false, message: "Nomor Anggota atau PIN salah!" });
         }
     } catch (err) {
