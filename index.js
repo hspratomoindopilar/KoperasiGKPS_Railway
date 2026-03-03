@@ -326,7 +326,7 @@ app.post('/update-anggota', async (req, res) => {
     }
 });
 
-app.post('/hapus-anggota/:no_anggota', async (req, res) => {
+app.delete('/hapus-anggota/:no_anggota', async (req, res) => {
     const actorNo = req.session.no_anggota || 'SYSTEM';
 
     try {
