@@ -822,6 +822,7 @@ app.get('/api/dashboard-summary', async (req, res) => {
             FROM transaksi 
             WHERE jumlah_bayar > 0 
             -- TAMBAHKAN INI AGAR DATA MIGRASI HILANG DARI LAPORAN
+            AND jenis_iuran != 'dividen' -- exclude dari perhitungan saldo kas
             AND NOT (jenis_iuran = 'pendaftaran' AND keterangan = 'MIGRASI PENDAFTARAN')
         `);
 
@@ -839,6 +840,10 @@ app.get('/api/dashboard-summary', async (req, res) => {
         const pinjamanRes = await pool.query('SELECT SUM(nominal_pokok) as total FROM pinjaman');
         const totalPinjaman = parseFloat(pinjamanRes.rows[0].total || 0);
 
+        // --- TAMBAHAN BARU: Hitung Total Dividen/SHU ---
+        const dividenRes = await pool.query("SELECT SUM(jumlah_bayar) as total FROM transaksi WHERE jenis_iuran = 'dividen'");
+        const totalDividen = parseFloat(dividenRes.rows[0].total || 0);
+
         // 5. Total Pengeluaran Kumulatif (Sekarang ditambah Tarik Simpanan)
         const totalPengeluaranKumulatif = totalKeluarOps + totalPinjaman + totalTarikSimpanan;
 
@@ -851,6 +856,7 @@ app.get('/api/dashboard-summary', async (req, res) => {
             total_pengeluaran_ops: totalKeluarOps,
             total_pinjaman_cair: totalPinjaman,
             total_tarik_simpanan: totalTarikSimpanan, // Data baru buat card baru
+            total_dividen: totalDividen, // card baru untuk shu/dividen
             total_pengeluaran_kumulatif: totalPengeluaranKumulatif,
             saldo_akhir_kas: saldoAkhir
         });
@@ -1191,6 +1197,59 @@ app.get('/api/laporan-tahunan/:tahun', async (req, res) => {
     }
 });
 
+// ENDPOINT laporan laba/rugi
+app.get('/api/laporan-labarugi', async (req, res) => {
+    const { bulan, tahun } = req.query; // Filter dari frontend
+
+    try {
+        // 1. Ambil Pendapatan (Bunga, Admin, Denda, dll)
+        // Kita ambil dari tabel transaksi yang bukan merupakan simpanan pokok/wajib/sukarela
+        const pendapatanRes = await pool.query(`
+            SELECT 
+                jenis_iuran as nama_akun,
+                SUM(jumlah_bayar) as total
+            FROM transaksi
+            WHERE EXTRACT(MONTH FROM tanggal) = $1 
+              AND EXTRACT(YEAR FROM tanggal) = $2
+              AND jenis_iuran IN ('pendapatan_bunga', 'admin_pinjaman', 'pendaftaran') -- Tambahkan label lain jika ada
+              AND jumlah_bayar > 0
+            GROUP BY jenis_iuran
+        `, [bulan, tahun]);
+
+        // 2. Ambil Beban Operasional (Dari tabel pengeluaran lo)
+        const bebanOpsRes = await pool.query(`
+            SELECT 
+                kategori as nama_akun, -- Asumsi tabel pengeluaran punya kolom kategori
+                SUM(nominal) as total
+            FROM pengeluaran
+            WHERE EXTRACT(MONTH FROM tanggal) = $1 
+              AND EXTRACT(YEAR FROM tanggal) = $2
+            GROUP BY kategori
+        `);
+
+        // 3. Ambil Beban Dividen (SHU yang sudah dibagikan di periode tersebut)
+        const bebanDividenRes = await pool.query(`
+            SELECT SUM(jumlah_bayar) as total
+            FROM transaksi
+            WHERE EXTRACT(MONTH FROM tanggal) = $1 
+              AND EXTRACT(YEAR FROM tanggal) = $2
+              AND jenis_iuran = 'dividen'
+        `, [bulan, tahun]);
+
+        const totalDividen = parseFloat(bebanDividenRes.rows[0].total || 0);
+
+        res.json({
+            pendapatan: pendapatanRes.rows,
+            beban_ops: bebanOpsRes.rows,
+            beban_dividen: totalDividen
+        });
+
+    } catch (err) {
+        console.error("Error Laba Rugi API:", err.message);
+        res.status(500).json({ message: "Gagal memuat data Laba Rugi" });
+    }
+});
+
 //endpoint untuk Activity LOG
 app.get('/api/logs', async (req, res) => {
     try {
@@ -1204,6 +1263,59 @@ app.get('/api/logs', async (req, res) => {
         res.json(result.rows);
     } catch (err) {
         res.status(500).json({ message: err.message });
+    }
+});
+
+app.post('/api/proses-shu-bulk', async (req, res) => {
+    const { total_budget, persen_modal, persen_jasa, tahun } = req.body;
+    const client = await pool.connect();
+
+    try {
+        await client.query('BEGIN');
+
+        // 1. Ambil data kontribusi tiap anggota
+        // Simpanan: Pokok + Wajib + Sukarela
+        // Jasa: Pendapatan Bunga yang pernah dibayar anggota tersebut
+        const dataRes = await client.query(`
+            SELECT 
+                a.id_anggota,
+                SUM(CASE WHEN t.jenis_iuran IN ('wajib', 'sukarela') THEN t.jumlah_bayar ELSE 0 END) as total_simpanan,
+                SUM(CASE WHEN t.jenis_iuran = 'pendapatan_bunga' THEN t.jumlah_bayar ELSE 0 END) as total_bunga
+            FROM anggota a
+            LEFT JOIN transaksi t ON a.id_anggota = t.id_anggota
+            GROUP BY a.id_anggota
+        `);
+
+        const anggota = dataRes.rows;
+        const grandTotalSimpanan = anggota.reduce((s, row) => s + parseFloat(row.total_simpanan), 0);
+        const grandTotalBunga = anggota.reduce((s, row) => s + parseFloat(row.total_bunga), 0);
+
+        const budgetModal = (persen_modal / 100) * total_budget;
+        const budgetJasa = (persen_jasa / 100) * total_budget;
+
+        for (let row of anggota) {
+            const jatahModal = grandTotalSimpanan > 0 ? (parseFloat(row.total_simpanan) / grandTotalSimpanan) * budgetModal : 0;
+            const jatahJasa = grandTotalBunga > 0 ? (parseFloat(row.total_bunga) / grandTotalBunga) * budgetJasa : 0;
+            
+            // Sesuai skenario: Pembulatan ke bawah
+            const totalDiterima = Math.floor(jatahModal + jatahJasa);
+
+            if (totalDiterima > 0) {
+                await client.query(`
+                    INSERT INTO transaksi (id_anggota, tanggal, jenis_iuran, jumlah_bayar, keterangan)
+                    VALUES ($1, CURRENT_DATE, 'dividen', $2, $3)
+                `, [row.id_anggota, totalDiterima, `Pembagian SHU ${tahun}`]);
+            }
+        }
+
+        await client.query('COMMIT');
+        res.json({ success: true, message: `Berhasil membagikan SHU ke ${anggota.length} anggota` });
+
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: err.message });
+    } finally {
+        client.release();
     }
 });
 
