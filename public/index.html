@@ -4090,20 +4090,19 @@
     async function fetchLabaRugi() {
         console.log("--- MENGAMBIL DATA LABA RUGI ---");
 
-        // 1. Identifikasi Elemen Filter (Sesuai ID di HTML lo)
         const elTahun = document.getElementById('lapTahun');
-        const elBulan = document.getElementById('lapBulan'); // Pastikan ID ini ada di HTML, jika belum ada akan pakai fallback
+        const elBulan = document.getElementById('lapBulan');
 
-        // 2. Ambil Nilai (Safety Check: Jika null, pakai tanggal sistem saat ini)
         const tahun = elTahun ? elTahun.value : new Date().getFullYear();
         const bulan = elBulan ? elBulan.value : (new Date().getMonth() + 1);
 
         try {
-            // 3. Fetch Data dari API
             const response = await fetch(`/api/laporan-labarugi?bulan=${bulan}&tahun=${tahun}`);
 
+            // Cek response dulu sebelum di .json()
             if (!response.ok) {
-                throw new Error(`Server merespon dengan status: ${response.status}`);
+                const errorData = await response.json();
+                throw new Error(errorData.message || `Server Error ${response.status}`);
             }
 
             const data = await response.json();
@@ -4117,10 +4116,10 @@
                     const nominal = parseFloat(item.total || 0);
                     totalPendapatan += nominal;
                     htmlPendapatan += `
-                    <div class="flex justify-between text-sm text-slate-600 border-b border-gray-50 py-1">
-                        <span class="capitalize">${item.nama_akun.replace(/_/g, ' ')}</span>
-                        <span class="font-medium">${formatRupiah(nominal)}</span>
-                    </div>`;
+                <div class="flex justify-between text-sm text-slate-600 border-b border-gray-50 py-1">
+                    <span class="capitalize">${item.nama_akun.replace(/_/g, ' ')}</span>
+                    <span class="font-medium">${formatRupiah(nominal)}</span>
+                </div>`;
                 });
             }
 
@@ -4128,34 +4127,32 @@
             let htmlBeban = '';
             let totalBeban = 0;
 
-            // A. Beban Operasional (dari tabel pengeluaran)
             if (data.beban_ops && data.beban_ops.length > 0) {
                 data.beban_ops.forEach(item => {
                     const nominal = parseFloat(item.total || 0);
                     totalBeban += nominal;
                     htmlBeban += `
-                    <div class="flex justify-between text-sm text-slate-600 border-b border-gray-50 py-1">
-                        <span class="capitalize">${item.nama_akun}</span>
-                        <span class="font-medium">${formatRupiah(nominal)}</span>
-                    </div>`;
+                <div class="flex justify-between text-sm text-slate-600 border-b border-gray-50 py-1">
+                    <span class="capitalize">${item.nama_akun}</span>
+                    <span class="font-medium">${formatRupiah(nominal)}</span>
+                </div>`;
                 });
             }
 
-            // B. Beban Dividen / SHU (Uang yang dialokasikan ke anggota)
             const nominalDividen = parseFloat(data.beban_dividen || 0);
             if (nominalDividen > 0) {
                 totalBeban += nominalDividen;
                 htmlBeban += `
-                <div class="flex justify-between text-sm text-rose-500 italic font-semibold py-1">
-                    <span>Alokasi SHU (Dividen)</span>
-                    <span class="font-medium">${formatRupiah(nominalDividen)}</span>
-                </div>`;
+            <div class="flex justify-between text-sm text-rose-500 italic font-semibold py-1">
+                <span>Alokasi SHU (Dividen)</span>
+                <span class="font-medium">${formatRupiah(nominalDividen)}</span>
+            </div>`;
             }
 
             // 6. Hitung Laba Bersih
             const labaBersih = totalPendapatan - totalBeban;
 
-            // 7. Push ke UI (DOM Injection)
+            // 7. Push ke UI
             document.getElementById('lr-list-pendapatan').innerHTML = htmlPendapatan ||
                 '<p class="text-xs text-slate-400 italic">Tidak ada data pendapatan pada periode ini.</p>';
 
@@ -4165,20 +4162,21 @@
             document.getElementById('lr-total-pendapatan').innerText = formatRupiah(totalPendapatan);
             document.getElementById('lr-total-beban').innerText = formatRupiah(totalBeban);
 
-            // Kasih warna khusus kalau laba negatif (Rugi)
             const elLabaBersih = document.getElementById('lr-laba-bersih');
             elLabaBersih.innerText = formatRupiah(labaBersih);
 
+            // Styling warna laba/rugi
             if (labaBersih < 0) {
-                elLabaBersih.classList.replace('text-amber-400', 'text-rose-400');
+                elLabaBersih.classList.add('text-rose-400');
+                elLabaBersih.classList.remove('text-amber-400');
             } else {
-                elLabaBersih.classList.replace('text-rose-400', 'text-amber-400');
+                elLabaBersih.classList.add('text-amber-400');
+                elLabaBersih.classList.remove('text-rose-400');
             }
 
         } catch (err) {
             console.error("Gagal memuat Laba Rugi:", err);
-            // Tampilkan pesan error sederhana di UI agar admin tidak bingung
-            document.getElementById('lr-list-pendapatan').innerHTML = `<p class="text-xs text-rose-500">Error: ${err.message}</p>`;
+            document.getElementById('lr-list-pendapatan').innerHTML = `<p class="text-xs text-rose-500 font-bold">Error: ${err.message}</p>`;
         }
     }
 

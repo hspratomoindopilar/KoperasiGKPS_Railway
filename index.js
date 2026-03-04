@@ -169,7 +169,7 @@ app.get('/daftar-anggota', async (req, res) => {
                     SELECT SUM(jumlah_bayar) 
                     FROM transaksi 
                     WHERE id_anggota = a.id_anggota 
-                    AND jenis_iuran IN ('wajib', 'sukarela', 'tarik_simpanan')
+                    AND jenis_iuran IN ('wajib', 'sukarela', 'dividen', 'tarik_simpanan')
                     AND keterangan != 'MIGRASI PENDAFTARAN'
                 ), 0) as total_simpanan,
                 
@@ -1199,11 +1199,10 @@ app.get('/api/laporan-tahunan/:tahun', async (req, res) => {
 
 // ENDPOINT laporan laba/rugi
 app.get('/api/laporan-labarugi', async (req, res) => {
-    const { bulan, tahun } = req.query; // Filter dari frontend
+    const { bulan, tahun } = req.query;
 
     try {
-        // 1. Ambil Pendapatan (Bunga, Admin, Denda, dll)
-        // Kita ambil dari tabel transaksi yang bukan merupakan simpanan pokok/wajib/sukarela
+        // 1. Ambil Pendapatan
         const pendapatanRes = await pool.query(`
             SELECT 
                 jenis_iuran as nama_akun,
@@ -1211,23 +1210,24 @@ app.get('/api/laporan-labarugi', async (req, res) => {
             FROM transaksi
             WHERE EXTRACT(MONTH FROM tanggal) = $1 
               AND EXTRACT(YEAR FROM tanggal) = $2
-              AND jenis_iuran IN ('pendapatan_bunga', 'admin_pinjaman', 'pendaftaran') -- Tambahkan label lain jika ada
+              AND jenis_iuran IN ('pendaftaran', 'admin_pinjaman', 'pendapatan_bunga')
               AND jumlah_bayar > 0
             GROUP BY jenis_iuran
         `, [bulan, tahun]);
 
-        // 2. Ambil Beban Operasional (Dari tabel pengeluaran lo)
+        // 2. Ambil Beban Operasional 
+        // --- CEK DISINI: Kalau kolom di tabel pengeluaran lo namanya 'keterangan', ganti kategori jadi keterangan ---
         const bebanOpsRes = await pool.query(`
             SELECT 
-                kategori as nama_akun, -- Asumsi tabel pengeluaran punya kolom kategori
+                COALESCE(kategori, 'Lain-lain') as nama_akun, 
                 SUM(nominal) as total
             FROM pengeluaran
             WHERE EXTRACT(MONTH FROM tanggal) = $1 
               AND EXTRACT(YEAR FROM tanggal) = $2
             GROUP BY kategori
-        `);
+        `, [bulan, tahun]);
 
-        // 3. Ambil Beban Dividen (SHU yang sudah dibagikan di periode tersebut)
+        // 3. Ambil Beban Dividen
         const bebanDividenRes = await pool.query(`
             SELECT SUM(jumlah_bayar) as total
             FROM transaksi
@@ -1236,17 +1236,15 @@ app.get('/api/laporan-labarugi', async (req, res) => {
               AND jenis_iuran = 'dividen'
         `, [bulan, tahun]);
 
-        const totalDividen = parseFloat(bebanDividenRes.rows[0].total || 0);
-
         res.json({
             pendapatan: pendapatanRes.rows,
             beban_ops: bebanOpsRes.rows,
-            beban_dividen: totalDividen
+            beban_dividen: parseFloat(bebanDividenRes.rows[0].total || 0)
         });
 
     } catch (err) {
-        console.error("Error Laba Rugi API:", err.message);
-        res.status(500).json({ message: "Gagal memuat data Laba Rugi" });
+        console.error("DETEKSI ERROR L/R:", err.message);
+        res.status(500).json({ message: "Server Error: " + err.message });
     }
 });
 
