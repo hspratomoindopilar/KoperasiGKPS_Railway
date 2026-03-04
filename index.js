@@ -1202,24 +1202,23 @@ app.get('/api/laporan-labarugi', async (req, res) => {
     const { bulan, tahun } = req.query;
 
     try {
-        // 1. Ambil Pendapatan
+        // 1. Ambil Pendapatan (Gunakan tgl_bayar)
         const pendapatanRes = await pool.query(`
             SELECT 
                 jenis_iuran as nama_akun,
                 SUM(jumlah_bayar) as total
             FROM transaksi
-            WHERE EXTRACT(MONTH FROM tanggal) = $1 
-              AND EXTRACT(YEAR FROM tanggal) = $2
+            WHERE EXTRACT(MONTH FROM tgl_bayar) = $1 
+              AND EXTRACT(YEAR FROM tgl_bayar) = $2
               AND jenis_iuran IN ('pendaftaran', 'admin_pinjaman', 'pendapatan_bunga')
               AND jumlah_bayar > 0
             GROUP BY jenis_iuran
         `, [bulan, tahun]);
 
-        // 2. Ambil Beban Operasional 
-        // --- CEK DISINI: Kalau kolom di tabel pengeluaran lo namanya 'keterangan', ganti kategori jadi keterangan ---
+        // 2. Ambil Beban Operasional (Gunakan tanggal)
         const bebanOpsRes = await pool.query(`
             SELECT 
-                COALESCE(kategori, 'Lain-lain') as nama_akun, 
+                kategori as nama_akun, 
                 SUM(nominal) as total
             FROM pengeluaran
             WHERE EXTRACT(MONTH FROM tanggal) = $1 
@@ -1227,12 +1226,12 @@ app.get('/api/laporan-labarugi', async (req, res) => {
             GROUP BY kategori
         `, [bulan, tahun]);
 
-        // 3. Ambil Beban Dividen
+        // 3. Ambil Beban Dividen (Gunakan tgl_bayar)
         const bebanDividenRes = await pool.query(`
             SELECT SUM(jumlah_bayar) as total
             FROM transaksi
-            WHERE EXTRACT(MONTH FROM tanggal) = $1 
-              AND EXTRACT(YEAR FROM tanggal) = $2
+            WHERE EXTRACT(MONTH FROM tgl_bayar) = $1 
+              AND EXTRACT(YEAR FROM tgl_bayar) = $2
               AND jenis_iuran = 'dividen'
         `, [bulan, tahun]);
 
