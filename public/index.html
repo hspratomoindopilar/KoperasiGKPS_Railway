@@ -679,9 +679,35 @@
             </div>
             <div id="viewLabaRugi" class="hidden">
                 <div class="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-                    <h2 class="text-xl font-black text-slate-800 mb-6 flex items-center gap-2">
-                        <span>📊</span> LAPORAN LABA RUGI
-                    </h2>
+                    <div class="flex flex-wrap justify-between items-center gap-4 mb-6 pb-4 border-b border-slate-50">
+                        <div>
+                            <h2 class="text-xl font-black text-slate-800 flex items-center gap-2">
+                                <span>📊</span> LAPORAN LABA RUGI
+                            </h2>
+                            <p id="lr-periode-text" class="text-[10px] text-slate-500 font-bold uppercase mt-1">Periode:
+                                Memuat...</p>
+                        </div>
+
+                        <div class="flex items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-100">
+                            <span class="text-[10px] font-black text-slate-400 ml-2 uppercase">Bulan:</span>
+                            <select id="lr-filter-bulan" onchange="fetchLabaRugi()"
+                                class="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer pr-2">
+                                <option value="0">Akumulatif (Tahunan)</option>
+                                <option value="1">Januari</option>
+                                <option value="2">Februari</option>
+                                <option value="3">Maret</option>
+                                <option value="4">April</option>
+                                <option value="5">Mei</option>
+                                <option value="6">Juni</option>
+                                <option value="7">Juli</option>
+                                <option value="8">Agustus</option>
+                                <option value="9">September</option>
+                                <option value="10">Oktober</option>
+                                <option value="11">November</option>
+                                <option value="12">Desember</option>
+                            </select>
+                        </div>
+                    </div>
 
                     <div class="space-y-6">
                         <section>
@@ -4090,16 +4116,24 @@
     async function fetchLabaRugi() {
         console.log("--- MENGAMBIL DATA LABA RUGI ---");
 
-        const elTahun = document.getElementById('lapTahun');
-        const elBulan = document.getElementById('lapBulan');
+        // 1. Ambil Elemen Filter
+        const elBulan = document.getElementById('lr-filter-bulan');
+        const elTahun = document.getElementById('lapTahun'); // Mengambil dari header global
 
+        const bulan = elBulan ? elBulan.value : 0;
         const tahun = elTahun ? elTahun.value : new Date().getFullYear();
-        const bulan = elBulan ? elBulan.value : (new Date().getMonth() + 1);
+
+        // 2. Update Teks Indikator Periode di UI
+        const namaBulan = ["Tahun Berjalan", "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+        const textPeriode = document.getElementById('lr-periode-text');
+        if (textPeriode) {
+            textPeriode.innerText = `PERIODE: ${namaBulan[bulan].toUpperCase()} ${tahun}`;
+        }
 
         try {
+            // 3. Request ke API
             const response = await fetch(`/api/laporan-labarugi?bulan=${bulan}&tahun=${tahun}`);
 
-            // Cek response dulu sebelum di .json()
             if (!response.ok) {
                 const errorData = await response.json();
                 throw new Error(errorData.message || `Server Error ${response.status}`);
@@ -4152,7 +4186,7 @@
             // 6. Hitung Laba Bersih
             const labaBersih = totalPendapatan - totalBeban;
 
-            // 7. Push ke UI
+            // 7. Push ke UI (Pastikan ID elemen ini ada di HTML lo)
             document.getElementById('lr-list-pendapatan').innerHTML = htmlPendapatan ||
                 '<p class="text-xs text-slate-400 italic">Tidak ada data pendapatan pada periode ini.</p>';
 
@@ -4176,10 +4210,12 @@
 
         } catch (err) {
             console.error("Gagal memuat Laba Rugi:", err);
-            document.getElementById('lr-list-pendapatan').innerHTML = `<p class="text-xs text-rose-500 font-bold">Error: ${err.message}</p>`;
+            const listPendapatan = document.getElementById('lr-list-pendapatan');
+            if (listPendapatan) {
+                listPendapatan.innerHTML = `<p class="text-xs text-rose-500 font-bold">Error: ${err.message}</p>`;
+            }
         }
     }
-
     function openModalSHU() {
         document.getElementById('modalSHU').classList.remove('hidden');
     }
