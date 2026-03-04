@@ -1201,39 +1201,40 @@ app.get('/api/laporan-tahunan/:tahun', async (req, res) => {
 app.get('/api/laporan-labarugi', async (req, res) => {
     const { bulan, tahun } = req.query;
 
+    // KUNCINYA DI SINI: 
+    // Kalau bulan = 0 (Akumulatif), kita tarik dari bulan 1 sampai 12.
+    // Kalau bulan > 0, kita tarik bulan itu saja (misal 3 sampai 3).
+    const bulanAwal = (parseInt(bulan) === 0) ? 1 : bulan;
+    const bulanAkhir = (parseInt(bulan) === 0) ? 12 : bulan;
+
     try {
-        // 1. Ambil Pendapatan (Gunakan tgl_bayar)
+        // 1. Query Pendapatan (Gunakan BETWEEN)
         const pendapatanRes = await pool.query(`
-            SELECT 
-                jenis_iuran as nama_akun,
-                SUM(jumlah_bayar) as total
+            SELECT jenis_iuran as nama_akun, SUM(jumlah_bayar) as total
             FROM transaksi
-            WHERE EXTRACT(MONTH FROM tgl_bayar) = $1 
-              AND EXTRACT(YEAR FROM tgl_bayar) = $2
+            WHERE EXTRACT(YEAR FROM tgl_bayar) = $1 
+              AND EXTRACT(MONTH FROM tgl_bayar) BETWEEN $2 AND $3
               AND jenis_iuran IN ('pendaftaran', 'admin_pinjaman', 'pendapatan_bunga')
-              AND jumlah_bayar > 0
             GROUP BY jenis_iuran
-        `, [bulan, tahun]);
+        `, [tahun, bulanAwal, bulanAkhir]);
 
-        // 2. Ambil Beban Operasional (Gunakan tanggal)
+        // 2. Query Beban Operasional (Gunakan BETWEEN)
         const bebanOpsRes = await pool.query(`
-            SELECT 
-                kategori as nama_akun, 
-                SUM(nominal) as total
+            SELECT kategori as nama_akun, SUM(nominal) as total
             FROM pengeluaran
-            WHERE EXTRACT(MONTH FROM tanggal) = $1 
-              AND EXTRACT(YEAR FROM tanggal) = $2
+            WHERE EXTRACT(YEAR FROM tanggal) = $1 
+              AND EXTRACT(MONTH FROM tanggal) BETWEEN $2 AND $3
             GROUP BY kategori
-        `, [bulan, tahun]);
+        `, [tahun, bulanAwal, bulanAkhir]);
 
-        // 3. Ambil Beban Dividen (Gunakan tgl_bayar)
+        // 3. Query Dividen
         const bebanDividenRes = await pool.query(`
             SELECT SUM(jumlah_bayar) as total
             FROM transaksi
-            WHERE EXTRACT(MONTH FROM tgl_bayar) = $1 
-              AND EXTRACT(YEAR FROM tgl_bayar) = $2
+            WHERE EXTRACT(YEAR FROM tgl_bayar) = $1 
+              AND EXTRACT(MONTH FROM tgl_bayar) BETWEEN $2 AND $3
               AND jenis_iuran = 'dividen'
-        `, [bulan, tahun]);
+        `, [tahun, bulanAwal, bulanAkhir]);
 
         res.json({
             pendapatan: pendapatanRes.rows,
@@ -1242,8 +1243,8 @@ app.get('/api/laporan-labarugi', async (req, res) => {
         });
 
     } catch (err) {
-        console.error("DETEKSI ERROR L/R:", err.message);
-        res.status(500).json({ message: "Server Error: " + err.message });
+        console.error("Error L/R Akumulatif:", err.message);
+        res.status(500).json({ message: err.message });
     }
 });
 
