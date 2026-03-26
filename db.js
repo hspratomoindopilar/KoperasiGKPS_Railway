@@ -1,21 +1,23 @@
 const { Pool } = require('pg');
-require('dotenv').config();
+
+// Langsung tembak URL-nya di sini
+const connectionString = "postgres://postgres.gvoxxegearhnntrrnxre:758186hsp86@aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres";
 
 const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_NAME,
-  password: process.env.DB_PASSWORD,
-  port: process.env.DB_PORT,
-  ssl: { rejectUnauthorized: false } 
+  connectionString: connectionString,
+  max: 10, // <--- TAMBAHKAN INI: Membatasi antrean maksimal 10 koneksi
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
+  ssl: false
 });
 
-pool.connect((err, client, release) => {
+// Tes koneksi
+pool.query('SELECT NOW()', (err, res) => {
   if (err) {
-    return console.error('Gagal konek ke database:', err.stack);
+    console.error('❌ Gagal konek:', err.message);
+  } else {
+    console.log('✅ AKHIRNYA BERHASIL! Database Supabase Terhubung.');
   }
-  console.log('Berhasil konek ke PostgreSQL!');
-  release();
 });
 
 module.exports = pool;

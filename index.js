@@ -1,14 +1,20 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const pool = require('./db');
 const { logActivity } = require('./logger');
-require('dotenv').config();
 const multer = require('multer');
 const path = require('path');
 const session = require('express-session'); // 1. Tambah import ini
 
 const app = express();
 app.use(cors());
+app.use(session({
+  secret: 'kopgkps-rahasia',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { secure: false } // Set false dulu karena kita tes di localhost (HTTP)
+}));
 app.use(express.json());
 
 // 1. HANYA BUKA AKSES UNTUK FOTO/ASET (IKLAN TETAP MUNCUL)
